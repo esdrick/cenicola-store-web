@@ -111,10 +111,10 @@ export default function StoreHomePage() {
               COLECCIÓN 2026
             </span>
             <h1 className="font-sans text-3xl sm:text-5xl lg:text-6xl font-normal uppercase tracking-tight leading-none text-white">
-              NUEVA TEMPORADA
+              NUEVAS TENDENCIAS
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 font-normal max-w-md pt-1 leading-relaxed">
-              Descubre las últimas tendencias en prendas minimalistas con la mejor calidad y envío directo a toda Venezuela.
+              Prendas confeccionadas con la máxima calidad. Somos fabricantes: viste a la vanguardia o impulsa tu propio negocio al mejor precio. Envíos directos y seguros a toda Venezuela.
             </p>
 
             <div className="pt-4 flex items-center gap-3">

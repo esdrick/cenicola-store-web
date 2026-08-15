@@ -98,8 +98,8 @@ export default function StoreNavbar({
 
         {/* Center: Lefties-Style Minimalist Typographic Logo */}
         <Link href="/" className="text-center group shrink-0">
-          <span className="font-sans text-lg sm:text-2xl lg:text-3xl font-bold tracking-[0.1em] text-black block uppercase group-hover:opacity-70 transition-opacity">
-            Q&apos;FRANELAS
+          <span className="font-sans text-xl sm:text-2xl lg:text-3xl font-bold tracking-[0.05em] text-black block uppercase group-hover:opacity-70 transition-opacity">
+            Q´FRANELAS
           </span>
         </Link>
 

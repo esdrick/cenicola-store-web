@@ -6,7 +6,16 @@ import { sendOrderCreatedEmail } from "@/lib/email";
 import type { PaymentType, DocumentType } from "@/app/generated/prisma/client";
 
 // POST /api/store/checkout — Public Checkout endpoint for customers
+const ENABLE_WEB_CHECKOUT = false; // Set to true only if direct web form checkout is enabled
+
 export async function POST(request: NextRequest) {
+  if (!ENABLE_WEB_CHECKOUT) {
+    return NextResponse.json(
+      { error: "El checkout directo web no está habilitado. Realiza tu compra a través de WhatsApp." },
+      { status: 403 }
+    );
+  }
+
   try {
     const body = await request.json().catch(() => null);
     if (!body) return NextResponse.json({ error: "Cuerpo de solicitud inválido" }, { status: 400 });

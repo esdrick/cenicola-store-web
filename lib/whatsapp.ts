@@ -184,7 +184,7 @@ export function formatWhatsAppOrderMessage(payload: WhatsAppOrderPayload): strin
  * Returns official universal WhatsApp API link with Unicode escape string
  */
 export function getWhatsAppUrl(payload: WhatsAppOrderPayload, phoneOverride?: string): string {
-  const rawPhone = phoneOverride || "34675514108";
+  const rawPhone = phoneOverride || process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "584129831561";
   const phone = rawPhone.replace(/[^0-9]/g, "");
   const text = formatWhatsAppOrderMessage(payload);
   return `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`;
