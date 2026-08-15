@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ShoppingBag, User, Heart, Search, Menu, X } from "lucide-react";
+import { ShoppingBag, Heart, Search, Menu, X } from "lucide-react";
 
 type StoreNavbarProps = {
   cartCount: number;
@@ -22,18 +22,9 @@ export default function StoreNavbar({
 }: StoreNavbarProps) {
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [customer, setCustomer] = useState<{ name: string; email: string } | null>(null);
 
   useEffect(() => {
     setMounted(true);
-    fetch("/api/store/auth/me")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.authenticated && data.customer) {
-          setCustomer(data.customer);
-        }
-      })
-      .catch(() => null);
   }, []);
 
   return (
@@ -136,15 +127,6 @@ export default function StoreNavbar({
             )}
           </button>
 
-          {/* Account Icon Only */}
-          <Link
-            href="/mi-cuenta"
-            className="p-1 text-black hover:opacity-60 transition-opacity flex items-center"
-            title={mounted && customer ? customer.name : "Mi Cuenta"}
-          >
-            <User className="w-4 h-4 sm:w-5 sm:h-5 stroke-[1.5]" />
-          </Link>
-
           {/* Cart Button */}
           <button
             onClick={onOpenCart}
@@ -177,11 +159,6 @@ export default function StoreNavbar({
           <Link href="/catalogo?category=Niños" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 hover:opacity-60 text-slate-700 border-b border-slate-100">
             NIÑOS
           </Link>
-          <div className="pt-2 flex justify-between items-center text-[10px] tracking-widest text-slate-500">
-            <Link href={mounted && customer ? "/mi-cuenta" : "/checkout"} onClick={() => setMobileMenuOpen(false)} className="text-black font-bold" suppressHydrationWarning>
-              {mounted && customer ? "MI CUENTA" : "INICIAR SESIÓN / REGISTRO"}
-            </Link>
-          </div>
         </div>
       )}
     </header>
