@@ -4,7 +4,8 @@ import { useState } from "react";
 import Image, { ImageProps } from "next/image";
 import { ImageOff } from "lucide-react";
 
-interface SafeImageProps extends Omit<ImageProps, "onError" | "onLoad"> {
+interface SafeImageProps extends Omit<ImageProps, "onError" | "onLoad" | "src"> {
+  src?: ImageProps["src"] | string | null | undefined;
   fallbackText?: string;
   showSkeleton?: boolean;
 }
@@ -21,11 +22,13 @@ export default function SafeImage({
   const [hasError, setHasError] = useState(false);
 
   const isValidSrc =
-    typeof src === "string" &&
-    src.trim().length > 0 &&
-    src !== "/placeholder.jpg" &&
-    src !== "undefined" &&
-    src !== "null";
+    Boolean(src) &&
+    (typeof src === "object" ||
+      (typeof src === "string" &&
+        src.trim().length > 0 &&
+        src !== "/placeholder.jpg" &&
+        src !== "undefined" &&
+        src !== "null"));
 
   if (!isValidSrc || hasError) {
     return (
@@ -48,7 +51,7 @@ export default function SafeImage({
       )}
 
       <Image
-        src={src}
+        src={src as ImageProps["src"]}
         alt={alt}
         className={`${className} transition-opacity duration-300 ease-out ${
           isLoaded ? "opacity-100" : "opacity-0"
