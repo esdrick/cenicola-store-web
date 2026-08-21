@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
+import SafeImage from "@/components/ui/SafeImage";
 import Link from "next/link";
 import { Search, X, ArrowRight } from "lucide-react";
 
@@ -153,7 +153,7 @@ export default function SearchDrawer({ isOpen, onClose, onSearchSubmit }: Search
                 {/* Instant Results Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                   {results.map((item) => {
-                    const photo = item.photos[0] || "/placeholder.jpg";
+                    const photo = item.photos && item.photos[0] ? item.photos[0] : "";
                     return (
                       <Link
                         key={item.id}
@@ -162,7 +162,7 @@ export default function SearchDrawer({ isOpen, onClose, onSearchSubmit }: Search
                         className="group flex flex-col space-y-1.5"
                       >
                         <div className="relative aspect-[3/4] bg-slate-100 rounded-xs overflow-hidden w-full">
-                          <Image
+                          <SafeImage
                             src={photo}
                             alt={item.name}
                             fill

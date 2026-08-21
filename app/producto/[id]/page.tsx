@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
+import SafeImage from "@/components/ui/SafeImage";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import StoreNavbar from "@/components/store/StoreNavbar";
@@ -285,7 +285,7 @@ export default function ProductDetailPage() {
                       selectedPhoto === photo ? "border-black" : "border-slate-200 opacity-60 hover:opacity-100"
                     }`}
                   >
-                    <Image src={photo} alt={`${product.name} ${idx}`} fill sizes="60px" className="object-cover" />
+                    <SafeImage src={photo} alt={`${product.name} ${idx}`} fill sizes="60px" className="object-cover" />
                   </button>
                 ))}
               </div>
@@ -293,20 +293,14 @@ export default function ProductDetailPage() {
 
             {/* Featured Photo (Controlled Compact Height) */}
             <div className="relative aspect-[3/4] w-full max-w-md mx-auto bg-slate-100 overflow-hidden flex-1">
-              {selectedPhoto ? (
-                <Image
-                  src={selectedPhoto}
-                  alt={product.name}
-                  fill
-                  priority
-                  sizes="(max-width: 1024px) 100vw, 45vw"
-                  className="object-cover object-center"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-slate-400 text-[10px] uppercase tracking-widest">
-                  Sin Foto
-                </div>
-              )}
+              <SafeImage
+                src={selectedPhoto}
+                alt={product.name}
+                fill
+                priority
+                sizes="(max-width: 1024px) 100vw, 45vw"
+                className="object-cover object-center"
+              />
             </div>
           </div>
 

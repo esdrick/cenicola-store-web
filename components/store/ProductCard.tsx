@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Bookmark } from "lucide-react";
 import { useWishlist } from "./WishlistContext";
+import SafeImage from "@/components/ui/SafeImage";
 
 type ProductCardProps = {
   id: string;
@@ -49,8 +49,8 @@ export default function ProductCard({
   variants = [],
   viewMode = "large",
 }: ProductCardProps) {
-  const mainPhoto = photos[0] || "/placeholder.jpg";
-  const hoverPhoto = photos[1] || mainPhoto;
+  const mainPhoto = photos && photos[0] ? photos[0] : "";
+  const hoverPhoto = photos && photos[1] ? photos[1] : mainPhoto;
 
   const { isInWishlist, toggleWishlist } = useWishlist();
   const isFavorite = isInWishlist(id);
@@ -75,19 +75,13 @@ export default function ProductCard({
             href={`/producto/${id}`}
             className="relative w-12 sm:w-16 aspect-[3/4] bg-slate-100 rounded-xs overflow-hidden shrink-0 block"
           >
-            {mainPhoto ? (
-              <Image
-                src={mainPhoto}
-                alt={name}
-                fill
-                sizes="80px"
-                className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-slate-400 text-[8px] uppercase">
-                Sin foto
-              </div>
-            )}
+            <SafeImage
+              src={mainPhoto}
+              alt={name}
+              fill
+              sizes="80px"
+              className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
+            />
           </Link>
 
           {/* Title, Color Swatch & Sizes */}
@@ -166,37 +160,30 @@ export default function ProductCard({
       {/* Product Image Showcase (Lefties High-Aspect Ratio 3:4) */}
       <div className="relative aspect-[3/4] w-full bg-slate-100 overflow-hidden block">
         <Link href={`/producto/${id}`} className="w-full h-full block relative">
-          {mainPhoto ? (
-            <>
-              <Image
-                src={mainPhoto}
-                alt={name}
-                fill
-                sizes={
-                  isCompact
-                    ? "(max-width: 768px) 33vw, (max-width: 1200px) 25vw, 16vw"
-                    : "(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                }
-                className="object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
-              />
-              {hoverPhoto !== mainPhoto && (
-                <Image
-                  src={hoverPhoto}
-                  alt={`${name} alt`}
-                  fill
-                  sizes={
-                    isCompact
-                      ? "(max-width: 768px) 33vw, (max-width: 1200px) 25vw, 16vw"
-                      : "(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                  }
-                  className="object-cover object-center opacity-0 group-hover:opacity-100 transition-opacity duration-700 ease-out"
-                />
-              )}
-            </>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-slate-400 text-[10px] uppercase tracking-[0.2em]">
-              SIN IMAGEN
-            </div>
+          <SafeImage
+            src={mainPhoto}
+            alt={name}
+            fill
+            sizes={
+              isCompact
+                ? "(max-width: 768px) 33vw, (max-width: 1200px) 25vw, 16vw"
+                : "(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+            }
+            className="object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+          />
+          {hoverPhoto && hoverPhoto !== mainPhoto && (
+            <SafeImage
+              src={hoverPhoto}
+              alt={`${name} alt`}
+              fill
+              showSkeleton={false}
+              sizes={
+                isCompact
+                  ? "(max-width: 768px) 33vw, (max-width: 1200px) 25vw, 16vw"
+                  : "(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+              }
+              className="object-cover object-center opacity-0 group-hover:opacity-100 transition-opacity duration-700 ease-out"
+            />
           )}
         </Link>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import SafeImage from "@/components/ui/SafeImage";
 import Link from "next/link";
 import { X, Trash2, Heart, ShoppingBag } from "lucide-react";
 import { useWishlist } from "./WishlistContext";
@@ -76,19 +76,13 @@ export default function WishlistDrawer({ isOpen, onClose }: WishlistDrawerProps)
                       onClick={onClose}
                       className="relative w-16 h-20 bg-slate-100 overflow-hidden shrink-0 block"
                     >
-                      {photo ? (
-                        <Image
-                          src={photo}
-                          alt={item.name}
-                          fill
-                          sizes="64px"
-                          className="object-cover object-center"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400 uppercase">
-                          SIN FOTO
-                        </div>
-                      )}
+                      <SafeImage
+                        src={photo}
+                        alt={item.name}
+                        fill
+                        sizes="64px"
+                        className="object-cover object-center"
+                      />
                     </Link>
 
                     {/* Details */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
+import SafeImage from "@/components/ui/SafeImage";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import StoreNavbar from "@/components/store/StoreNavbar";
@@ -238,13 +238,7 @@ export default function CheckoutPage() {
                   {/* Photo & Item Info */}
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="relative w-12 aspect-[3/4] bg-slate-100 shrink-0 overflow-hidden rounded-xs">
-                      {item.photo ? (
-                        <Image src={item.photo} alt={item.name} fill sizes="60px" className="object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400 uppercase">
-                          Sin foto
-                        </div>
-                      )}
+                      <SafeImage src={item.photo} alt={item.name} fill sizes="60px" className="object-cover" />
                     </div>
 
                     <div className="min-w-0 space-y-0.5">
