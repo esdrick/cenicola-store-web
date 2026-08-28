@@ -49,11 +49,14 @@ export default function CheckoutPage() {
   // Auth State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
-  const [authTab, setAuthTab] = useState<"login" | "register">("login");
+  const [authTab, setAuthTab] = useState<"login" | "register" | "forgot">("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authConfirmEmail, setAuthConfirmEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authConfirmPassword, setAuthConfirmPassword] = useState("");
+  const [forgotStep, setForgotStep] = useState<1 | 2>(1);
+  const [forgotPin, setForgotPin] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
   const [showPinStep, setShowPinStep] = useState(false);
   const [pinCode, setPinCode] = useState("");
   const [pinSubmitting, setPinSubmitting] = useState(false);
@@ -196,13 +199,60 @@ export default function CheckoutPage() {
     saveCart(updated);
   };
 
-  // Auth Submission (Login or Register)
+  // Auth Submission (Login, Register or Forgot Password)
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError("");
+    setResendPinSuccess("");
     setAuthSubmitting(true);
 
     try {
+      if (authTab === "forgot") {
+        if (!authEmail.trim()) {
+          throw new Error("Ingresa tu correo electrónico para recuperar tu clave.");
+        }
+
+        if (forgotStep === 1) {
+          const res = await fetch("/api/store/auth/forgot-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: authEmail.trim() }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Error al solicitar el código de recuperación.");
+
+          setForgotStep(2);
+          setResendPinSuccess("Un código PIN de 6 dígitos ha sido enviado a tu correo.");
+        } else {
+          if (!forgotPin.trim() || forgotPin.trim().length !== 6) {
+            throw new Error("Ingresa el código PIN de 6 dígitos que recibiste en tu correo.");
+          }
+          if (!forgotNewPassword || forgotNewPassword.trim().length < 8) {
+            throw new Error("La nueva contraseña debe tener al menos 8 caracteres.");
+          }
+
+          const res = await fetch("/api/store/auth/reset-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: authEmail.trim(),
+              pinCode: forgotPin.trim(),
+              newPassword: forgotNewPassword.trim(),
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Error al restablecer la contraseña.");
+
+          setAuthTab("login");
+          setAuthPassword(forgotNewPassword.trim());
+          setResendPinSuccess("¡Tu contraseña ha sido restablecida con éxito! Ya puedes iniciar sesión.");
+          setForgotStep(1);
+          setForgotPin("");
+          setForgotNewPassword("");
+        }
+        return;
+      }
+
       if (authTab === "login") {
         const res = await fetch("/api/store/auth/login", {
           method: "POST",
@@ -805,35 +855,66 @@ export default function CheckoutPage() {
                 </div>
 
                 {authError && (
-                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xs flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    {authError}
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xs space-y-1">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{authError}</span>
+                    </div>
+                    {authError.includes("ya se encuentra registrado") && (
+                      <div className="pt-1 flex gap-3 text-[11px] font-semibold underline">
+                        <button
+                          type="button"
+                          onClick={() => { setAuthTab("login"); setAuthError(""); }}
+                          className="text-red-900 hover:text-black cursor-pointer"
+                        >
+                          → Iniciar Sesión
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setAuthTab("forgot"); setForgotStep(1); setAuthError(""); }}
+                          className="text-red-900 hover:text-black cursor-pointer"
+                        >
+                          → Recuperar Contraseña
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {resendPinSuccess && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{resendPinSuccess}</span>
                   </div>
                 )}
 
                 {/* Google Sign-In Button */}
-                <a
-                  href="/api/store/auth/google?redirect=/checkout"
-                  className="w-full border border-slate-300 bg-white text-black py-2.5 px-4 text-xs font-semibold uppercase tracking-wider hover:bg-slate-50 transition-colors flex items-center justify-center gap-2.5 rounded-xs"
-                >
-                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                  </svg>
-                  <span>Continuar con Google</span>
-                </a>
+                {authTab !== "forgot" && (
+                  <>
+                    <a
+                      href="/api/store/auth/google?redirect=/checkout"
+                      className="w-full border border-slate-300 bg-white text-black py-2.5 px-4 text-xs font-semibold uppercase tracking-wider hover:bg-slate-50 transition-colors flex items-center justify-center gap-2.5 rounded-xs"
+                    >
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                      </svg>
+                      <span>Continuar con Google</span>
+                    </a>
 
-                <div className="relative flex items-center justify-center my-1">
-                  <div className="border-t border-slate-200 w-full" />
-                  <span className="bg-white px-2.5 text-[10px] text-slate-400 uppercase tracking-widest absolute">o con tu correo</span>
-                </div>
+                    <div className="relative flex items-center justify-center my-1">
+                      <div className="border-t border-slate-200 w-full" />
+                      <span className="bg-white px-2.5 text-[10px] text-slate-400 uppercase tracking-widest absolute">o con tu correo</span>
+                    </div>
+                  </>
+                )}
 
                 <div className="flex border-b border-slate-200 text-xs font-medium uppercase tracking-wider">
                   <button
                     type="button"
-                    onClick={() => setAuthTab("login")}
+                    onClick={() => { setAuthTab("login"); setAuthError(""); setResendPinSuccess(""); }}
                     className={`py-2 px-4 border-b-2 cursor-pointer transition-colors ${
                       authTab === "login"
                         ? "border-black font-semibold text-black"
@@ -844,7 +925,7 @@ export default function CheckoutPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setAuthTab("register")}
+                    onClick={() => { setAuthTab("register"); setAuthError(""); setResendPinSuccess(""); }}
                     className={`py-2 px-4 border-b-2 cursor-pointer transition-colors ${
                       authTab === "register"
                         ? "border-black font-semibold text-black"
@@ -853,129 +934,220 @@ export default function CheckoutPage() {
                   >
                     Crear Cuenta
                   </button>
+                  {authTab === "forgot" && (
+                    <button
+                      type="button"
+                      className="py-2 px-4 border-b-2 border-black font-semibold text-black"
+                    >
+                      Recuperar Clave
+                    </button>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
-                  {authTab === "register" && (
-                    <>
-                      <div>
-                        <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Nombre</label>
-                        <input
-                          type="text"
-                          maxLength={50}
-                          value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white"
-                          placeholder="Ej. María"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Apellido</label>
-                        <input
-                          type="text"
-                          maxLength={50}
-                          value={customerLastname}
-                          onChange={(e) => setCustomerLastname(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white"
-                          placeholder="Ej. Pérez"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Cédula / RIF</label>
-                        <div className="flex gap-2">
-                          <select
-                            value={docType}
-                            onChange={(e) => setDocType(e.target.value)}
-                            className="px-2 py-2 border border-slate-300 text-xs text-black bg-white font-semibold focus:outline-none focus:border-black rounded-xs"
-                          >
-                            <option value="V">V-</option>
-                            <option value="J">J-</option>
-                            <option value="E">E-</option>
-                            <option value="P">P-</option>
-                          </select>
-                          <input
-                            type="text"
-                            maxLength={12}
-                            value={docNumber}
-                            onChange={(e) => setDocNumber(e.target.value)}
-                            className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white font-mono"
-                            placeholder="12345678"
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Teléfono</label>
-                        <input
-                          type="tel"
-                          maxLength={20}
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white font-mono"
-                          placeholder="Ej. 04121234567"
-                        />
-                      </div>
-                    </>
-                  )}
+                {authTab === "forgot" ? (
+                  <div className="space-y-3 text-xs pt-1">
+                    <p className="text-slate-600 text-[11px]">
+                      {forgotStep === 1
+                        ? "Ingresa tu correo para recibir un código PIN de 6 dígitos y restablecer tu clave."
+                        : "Ingresa el código PIN recibido en tu correo y tu nueva contraseña."}
+                    </p>
 
-                  <div className={authTab === "login" ? "sm:col-span-2" : ""}>
-                    <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Correo Electrónico *</label>
-                    <input
-                      type="email"
-                      maxLength={100}
-                      value={authEmail}
-                      onChange={(e) => setAuthEmail(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white font-mono"
-                      placeholder="maria@gmail.com"
-                      required
-                    />
-                  </div>
-
-                  {authTab === "register" && (
                     <div>
-                      <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Confirmar Correo Electrónico *</label>
+                      <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Correo Electrónico *</label>
                       <input
                         type="email"
                         maxLength={100}
-                        value={authConfirmEmail}
-                        onChange={(e) => setAuthConfirmEmail(e.target.value)}
+                        value={authEmail}
+                        onChange={(e) => setAuthEmail(e.target.value)}
+                        disabled={forgotStep === 2}
                         className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white font-mono"
-                        placeholder="Repite tu correo electrónico"
+                        placeholder="tuemail@gmail.com"
                         required
                       />
                     </div>
-                  )}
 
-                  <div className={authTab === "login" ? "sm:col-span-2" : ""}>
-                    <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Contraseña (Mínimo 8 caracteres) *</label>
-                    <input
-                      type="password"
-                      maxLength={100}
-                      value={authPassword}
-                      onChange={(e) => setAuthPassword(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white font-mono"
-                      placeholder="••••••••"
-                      required
-                    />
+                    {forgotStep === 2 && (
+                      <>
+                        <div>
+                          <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Código PIN (6 dígitos) *</label>
+                          <input
+                            type="text"
+                            maxLength={6}
+                            value={forgotPin}
+                            onChange={(e) => setForgotPin(e.target.value.replace(/\D/g, ""))}
+                            className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white font-mono text-center tracking-widest text-sm font-bold"
+                            placeholder="123456"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Nueva Contraseña (Mínimo 8 caracteres) *</label>
+                          <input
+                            type="password"
+                            maxLength={100}
+                            value={forgotNewPassword}
+                            onChange={(e) => setForgotNewPassword(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white font-mono"
+                            placeholder="••••••••"
+                            required
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <div className="flex justify-between items-center pt-2">
+                      <button
+                        type="button"
+                        onClick={() => { setAuthTab("login"); setForgotStep(1); setAuthError(""); }}
+                        className="text-[11px] text-slate-500 hover:text-black underline cursor-pointer"
+                      >
+                        ← Volver a Iniciar Sesión
+                      </button>
+                      {forgotStep === 2 && (
+                        <button
+                          type="button"
+                          onClick={() => setForgotStep(1)}
+                          className="text-[11px] text-slate-500 hover:text-black underline cursor-pointer"
+                        >
+                          Reenviar PIN
+                        </button>
+                      )}
+                    </div>
                   </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                    {authTab === "register" && (
+                      <>
+                        <div>
+                          <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Nombre</label>
+                          <input
+                            type="text"
+                            maxLength={50}
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white"
+                            placeholder="Ej. María"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Apellido</label>
+                          <input
+                            type="text"
+                            maxLength={50}
+                            value={customerLastname}
+                            onChange={(e) => setCustomerLastname(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white"
+                            placeholder="Ej. Pérez"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Cédula / RIF</label>
+                          <div className="flex gap-2">
+                            <select
+                              value={docType}
+                              onChange={(e) => setDocType(e.target.value)}
+                              className="px-2 py-2 border border-slate-300 text-xs text-black bg-white font-semibold focus:outline-none focus:border-black rounded-xs"
+                            >
+                              <option value="V">V-</option>
+                              <option value="J">J-</option>
+                              <option value="E">E-</option>
+                              <option value="P">P-</option>
+                            </select>
+                            <input
+                              type="text"
+                              maxLength={12}
+                              value={docNumber}
+                              onChange={(e) => setDocNumber(e.target.value)}
+                              className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white font-mono"
+                              placeholder="12345678"
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Teléfono</label>
+                          <input
+                            type="tel"
+                            maxLength={20}
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white font-mono"
+                            placeholder="Ej. 04121234567"
+                          />
+                        </div>
+                      </>
+                    )}
 
-                  {authTab === "register" && (
-                    <div>
-                      <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Confirmar Contraseña *</label>
+                    <div className={authTab === "login" ? "sm:col-span-2" : ""}>
+                      <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Correo Electrónico *</label>
+                      <input
+                        type="email"
+                        maxLength={100}
+                        value={authEmail}
+                        onChange={(e) => setAuthEmail(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white font-mono"
+                        placeholder="maria@gmail.com"
+                        required
+                      />
+                    </div>
+
+                    {authTab === "register" && (
+                      <div>
+                        <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Confirmar Correo Electrónico *</label>
+                        <input
+                          type="email"
+                          maxLength={100}
+                          value={authConfirmEmail}
+                          onChange={(e) => setAuthConfirmEmail(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white font-mono"
+                          placeholder="Repite tu correo electrónico"
+                          required
+                        />
+                      </div>
+                    )}
+
+                    <div className={authTab === "login" ? "sm:col-span-2" : ""}>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-[11px] uppercase tracking-wider text-black font-normal">Contraseña (Mínimo 8 caracteres) *</label>
+                        {authTab === "login" && (
+                          <button
+                            type="button"
+                            onClick={() => { setAuthTab("forgot"); setForgotStep(1); setAuthError(""); }}
+                            className="text-[10px] text-slate-500 hover:text-black underline cursor-pointer"
+                          >
+                            ¿Olvidaste tu contraseña?
+                          </button>
+                        )}
+                      </div>
                       <input
                         type="password"
                         maxLength={100}
-                        value={authConfirmPassword}
-                        onChange={(e) => setAuthConfirmPassword(e.target.value)}
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
                         className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white font-mono"
-                        placeholder="Repite tu contraseña"
+                        placeholder="••••••••"
                         required
                       />
                     </div>
-                  )}
-                </div>
+
+                    {authTab === "register" && (
+                      <div>
+                        <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">Confirmar Contraseña *</label>
+                        <input
+                          type="password"
+                          maxLength={100}
+                          value={authConfirmPassword}
+                          onChange={(e) => setAuthConfirmPassword(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white font-mono"
+                          placeholder="Repite tu contraseña"
+                          required
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <button
                   type="button"
@@ -983,7 +1155,15 @@ export default function CheckoutPage() {
                   disabled={authSubmitting}
                   className="w-full bg-black text-white py-3 px-4 text-xs font-normal uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 rounded-xs cursor-pointer"
                 >
-                  {authSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : authTab === "register" ? "Crear Cuenta" : "Iniciar Sesión"}
+                  {authSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : authTab === "forgot" ? (
+                    forgotStep === 1 ? "Enviar PIN de Recuperación" : "Restablecer Contraseña"
+                  ) : authTab === "register" ? (
+                    "Crear Cuenta"
+                  ) : (
+                    "Iniciar Sesión"
+                  )}
                 </button>
               </div>
             ) : (

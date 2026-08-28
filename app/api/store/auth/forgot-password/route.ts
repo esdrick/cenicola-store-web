@@ -20,11 +20,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!customer) {
-      // Security best practice: don't reveal whether email exists or not
-      return NextResponse.json({
-        success: true,
-        message: "Si el correo está registrado, recibirás un código de recuperación.",
-      });
+      return NextResponse.json(
+        { error: "No encontramos ninguna cuenta registrada con este correo. Por favor regístrate primero." },
+        { status: 404 }
+      );
     }
 
     if (!customer.is_active) {

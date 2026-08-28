@@ -246,9 +246,9 @@ export async function POST(request: NextRequest) {
 
       totalUsd = parseFloat(totalUsd.toFixed(2));
 
-      // 2. Smart Customer Resolution (Email-First, then Doc)
+      // 2. Smart Customer Resolution (Email-First)
       const cleanEmail = customer_email.trim().toLowerCase();
-      const cleanDocNumber = doc_number.trim();
+      const cleanDocNumber = doc_number.trim().toUpperCase();
 
       let customer = await tx.customer.findFirst({
         where: { email: cleanEmail },

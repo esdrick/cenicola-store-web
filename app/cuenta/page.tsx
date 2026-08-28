@@ -978,9 +978,25 @@ function AccountContent() {
                   </div>
 
                   {forgotError && (
-                    <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xs flex items-center gap-2">
-                      <XCircle className="w-4 h-4 shrink-0" />
-                      {forgotError}
+                    <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xs space-y-1">
+                      <div className="flex items-center gap-2">
+                        <XCircle className="w-4 h-4 shrink-0" />
+                        <span>{forgotError}</span>
+                      </div>
+                      {forgotError.includes("No encontramos ninguna cuenta") && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUnauthMode("register");
+                            setRegEmail(forgotEmail);
+                            setRegConfirmEmail(forgotEmail);
+                            setForgotError(null);
+                          }}
+                          className="text-[11px] font-semibold text-red-900 hover:text-black underline block pt-1 cursor-pointer"
+                        >
+                          → Haz clic aquí para Crear tu Cuenta con este correo
+                        </button>
+                      )}
                     </div>
                   )}
 

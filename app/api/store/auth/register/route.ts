@@ -45,6 +45,8 @@ export async function POST(req: NextRequest) {
 
     const cleanDocNumber = doc_number.trim().toUpperCase();
 
+    // Accounts are strictly unique by EMAIL.
+    // Cédula/RIF is part of profile/shipping info and can be reused across different user accounts.
     const existingEmail = await prisma.customer.findFirst({
       where: { email: cleanEmail },
     });
@@ -121,8 +123,14 @@ export async function POST(req: NextRequest) {
       email: cleanEmail,
       message: `Hemos enviado un código PIN de 6 dígitos a ${cleanEmail}. Ingrésalo para confirmar tu correo.`,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("POST /api/store/auth/register:", err);
+    if (err?.code === "P2002") {
+      return NextResponse.json(
+        { error: "Este correo electrónico ya se encuentra registrado. Inicia sesión." },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ error: "Error al registrar la cuenta de cliente" }, { status: 500 });
   }
 }
