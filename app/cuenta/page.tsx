@@ -1384,7 +1384,11 @@ function AccountContent() {
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">
                       Cédula / RIF
                     </span>
-                    <p className="font-mono font-semibold text-black text-sm">{profile.doc_type}-{profile.doc_number}</p>
+                    <p className="font-mono font-semibold text-black text-sm">
+                      {profile.doc_number && !profile.doc_number.startsWith("TEMP-")
+                        ? `${profile.doc_type}-${profile.doc_number}`
+                        : "No especificado"}
+                    </p>
                   </div>
 
                   <div className="space-y-1">

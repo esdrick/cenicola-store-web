@@ -135,7 +135,8 @@ export default function CheckoutPage() {
           setCustomerName(data.customer.name || "");
           setCustomerLastname(data.customer.lastname || "");
           setDocType(data.customer.doc_type || "V");
-          setDocNumber(data.customer.doc_number || "");
+          const docNum = data.customer.doc_number || "";
+          setDocNumber(docNum.startsWith("TEMP-") ? "" : docNum);
           setPhone(data.customer.phone || "");
           setAddress(data.customer.address || "");
           setSavedUserAddress(data.customer.address || "");
@@ -233,7 +234,8 @@ export default function CheckoutPage() {
           setCustomerName(data.customer.name || "");
           setCustomerLastname(data.customer.lastname || "");
           setDocType(data.customer.doc_type || "V");
-          setDocNumber(data.customer.doc_number || "");
+          const loginDocNum = data.customer.doc_number || "";
+          setDocNumber(loginDocNum.startsWith("TEMP-") ? "" : loginDocNum);
           setPhone(data.customer.phone || "");
           setAddress(data.customer.address || "");
           setSavedUserAddress(data.customer.address || "");
@@ -301,7 +303,8 @@ export default function CheckoutPage() {
         setCustomerName(data.customer.name || "");
         setCustomerLastname(data.customer.lastname || "");
         setDocType(data.customer.doc_type || "V");
-        setDocNumber(data.customer.doc_number || "");
+        const pinDocNum = data.customer.doc_number || "";
+        setDocNumber(pinDocNum.startsWith("TEMP-") ? "" : pinDocNum);
         setPhone(data.customer.phone || "");
       }
     } catch (err: unknown) {
