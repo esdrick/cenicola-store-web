@@ -46,12 +46,13 @@ export async function POST(req: NextRequest) {
     const cleanDocNumber = doc_number.trim().toUpperCase();
 
     // Accounts are strictly unique by EMAIL.
-    // Cédula/RIF is part of profile/shipping info and can be reused across different user accounts.
     const existingEmail = await prisma.customer.findFirst({
       where: { email: cleanEmail },
     });
 
-    if (existingEmail && existingEmail.email_verified) {
+    // Only block if account is already verified AND has an established password.
+    // If account was created via Google OAuth (password_hash === null), permit setting password & profile.
+    if (existingEmail && existingEmail.email_verified && existingEmail.password_hash) {
       return NextResponse.json(
         { error: "Este correo electrónico ya se encuentra registrado. Inicia sesión." },
         { status: 400 }
@@ -62,23 +63,39 @@ export async function POST(req: NextRequest) {
     const verificationExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     const password_hash = await bcrypt.hash(cleanPassword, 10);
 
+    const cleanDocType = String(doc_type || "V").trim().toUpperCase();
+    const VALID_DOC_TYPES: DocumentType[] = ["V", "P", "J", "E"];
+    const finalDocType = VALID_DOC_TYPES.includes(cleanDocType as DocumentType) ? (cleanDocType as DocumentType) : "V";
+
     let customer;
     if (existingEmail) {
+      // If customer came from Google OAuth, keep email_verified true when setting password
+      const isGoogleUser = Boolean(existingEmail.email_verified && !existingEmail.password_hash);
       customer = await prisma.customer.update({
         where: { id: existingEmail.id },
         data: {
           name: name.trim(),
           lastname: lastname.trim(),
-          doc_type: doc_type as DocumentType,
+          doc_type: finalDocType,
           doc_number: cleanDocNumber,
           password_hash,
-          verification_code: pinCode,
-          verification_expiry: verificationExpiry,
-          email_verified: false,
+          verification_code: isGoogleUser ? null : pinCode,
+          verification_expiry: isGoogleUser ? null : verificationExpiry,
+          email_verified: isGoogleUser ? true : false,
           phone: phone?.trim() || existingEmail.phone,
           address: address?.trim() || existingEmail.address,
         },
       });
+
+      if (isGoogleUser) {
+        return NextResponse.json({
+          success: true,
+          requiresVerification: false,
+          require_pin: false,
+          email: cleanEmail,
+          message: "Tu contraseña ha sido vinculada exitosamente a tu cuenta.",
+        });
+      }
     } else {
       customer = await prisma.customer.create({
         data: {
@@ -86,7 +103,7 @@ export async function POST(req: NextRequest) {
           lastname: lastname.trim(),
           email: cleanEmail,
           password_hash,
-          doc_type: doc_type as DocumentType,
+          doc_type: finalDocType,
           doc_number: cleanDocNumber,
           verification_code: pinCode,
           verification_expiry: verificationExpiry,
@@ -124,10 +141,19 @@ export async function POST(req: NextRequest) {
       message: `Hemos enviado un código PIN de 6 dígitos a ${cleanEmail}. Ingrésalo para confirmar tu correo.`,
     });
   } catch (err: any) {
-    console.error("POST /api/store/auth/register:", err);
+    console.error("POST /api/store/auth/register error:", err);
     if (err?.code === "P2002") {
+      const targets = Array.isArray(err?.meta?.target)
+        ? err.meta.target.join(" ")
+        : String(err?.meta?.target || "");
+      if (targets.includes("email")) {
+        return NextResponse.json(
+          { error: "Este correo electrónico ya se encuentra registrado. Inicia sesión." },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
-        { error: "Este correo electrónico ya se encuentra registrado. Inicia sesión." },
+        { error: "La cédula o RIF ingresado ya se encuentra registrado con otra cuenta. Por favor verifica tus datos." },
         { status: 400 }
       );
     }

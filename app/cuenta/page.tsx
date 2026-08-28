@@ -754,9 +754,38 @@ function AccountContent() {
                   {!showPinStep ? (
                     <form onSubmit={handleRegisterSubmit} className="space-y-4">
                       {regError && (
-                        <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xs flex items-center gap-2">
-                          <XCircle className="w-4 h-4 shrink-0" />
-                          {regError}
+                        <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xs">
+                          {regError.includes("ya se encuentra registrado") ? (
+                            <p className="leading-relaxed">
+                              Este correo electrónico ya se encuentra registrado.{" "}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUnauthMode("login");
+                                  setLoginEmail(regEmail);
+                                  setRegError(null);
+                                }}
+                                className="font-bold underline text-red-950 hover:text-black cursor-pointer inline"
+                              >
+                                Iniciar Sesión
+                              </button>{" "}
+                              o{" "}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUnauthMode("forgot");
+                                  setForgotEmail(regEmail);
+                                  setRegError(null);
+                                }}
+                                className="font-bold underline text-red-950 hover:text-black cursor-pointer inline"
+                              >
+                                Recuperar Contraseña
+                              </button>
+                              .
+                            </p>
+                          ) : (
+                            <span>{regError}</span>
+                          )}
                         </div>
                       )}
 
