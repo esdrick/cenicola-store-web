@@ -65,7 +65,7 @@ export default function ContactoPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-black flex flex-col font-sans selection:bg-black selection:text-white" suppressHydrationWarning>
+    <div className="min-h-screen bg-white text-black flex flex-col font-sans selection:bg-black selection:text-white">
       <StoreNavbar
         cartCount={cart.reduce((s, i) => s + i.quantity, 0)}
         onOpenCart={() => setCartOpen(true)}
@@ -78,9 +78,14 @@ export default function ContactoPage() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 lg:px-12 py-12 lg:py-16">
         {/* Editorial Header */}
         <div className="border-b border-slate-200 pb-8 mb-12">
-          <span className="text-[11px] uppercase tracking-[0.25em] font-semibold text-slate-400 block mb-2">
-            NUESTRAS TIENDAS FÍSICAS & ATENCIÓN
-          </span>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <span className="text-[11px] uppercase tracking-[0.25em] font-semibold text-slate-400 block">
+              NUESTRAS TIENDAS FÍSICAS & ATENCIÓN
+            </span>
+            <span className="text-[10px] uppercase tracking-widest font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 border border-slate-200">
+              RIF: J-50444768-4
+            </span>
+          </div>
           <h1 className="font-sans text-3xl sm:text-5xl font-bold uppercase tracking-tight text-black">
             ¿DÓNDE ENCONTRARNOS?
           </h1>
@@ -125,10 +130,7 @@ export default function ContactoPage() {
                 </div>
                 <div className="text-xs text-slate-700 flex items-center gap-2.5 font-medium">
                   <Phone className="w-4 h-4 text-black shrink-0 stroke-[1.5]" />
-                  <span>Línea Principal / WhatsApp: <strong>+58 412-9831561</strong></span>
-                </div>
-                <div className="text-xs text-slate-700 flex items-center gap-2.5 font-medium pl-6">
-                  <span>Línea Secundaria: <strong>+58 412-8373528</strong></span>
+                  <span>Teléfono / WhatsApp: <strong>+58 412-9831561</strong></span>
                 </div>
               </div>
             </div>

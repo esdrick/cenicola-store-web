@@ -104,17 +104,21 @@ const EMOJI = {
 export function encodeOrderForVendedora(payload: WhatsAppOrderPayload): string {
   try {
     const jsonStr = JSON.stringify(payload);
-    if (typeof window !== "undefined") {
+    if (typeof btoa === "function") {
       return btoa(unescape(encodeURIComponent(jsonStr)))
         .replace(/\+/g, "-")
         .replace(/\//g, "_")
         .replace(/=+$/, "");
     }
-    return Buffer.from(jsonStr)
-      .toString("base64")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
+    const buf = (globalThis as unknown as { Buffer?: { from: (s: string) => { toString: (e: string) => string } } }).Buffer;
+    if (buf) {
+      return buf.from(jsonStr)
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+    }
+    return "";
   } catch {
     return "";
   }
@@ -131,10 +135,13 @@ export function decodeOrderForVendedora(encodedData: string): WhatsAppOrderPaylo
       base64 += "=";
     }
     let jsonStr = "";
-    if (typeof window !== "undefined") {
+    if (typeof atob === "function") {
       jsonStr = decodeURIComponent(escape(atob(base64)));
     } else {
-      jsonStr = Buffer.from(base64, "base64").toString("utf-8");
+      const buf = (globalThis as unknown as { Buffer?: { from: (s: string, e: string) => { toString: (e: string) => string } } }).Buffer;
+      if (buf) {
+        jsonStr = buf.from(base64, "base64").toString("utf-8");
+      }
     }
     return JSON.parse(jsonStr);
   } catch {
@@ -144,6 +151,32 @@ export function decodeOrderForVendedora(encodedData: string): WhatsAppOrderPaylo
       return null;
     }
   }
+}
+
+/**
+ * Checks if a payment method name corresponds to foreign currency (divisas)
+ */
+export function isDivisasPaymentMethod(paymentMethod?: string): boolean {
+  if (!paymentMethod) return false;
+  const clean = paymentMethod.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return [
+    "zelle",
+    "usdt",
+    "panama",
+    "banco_panama",
+    "efectivo",
+    "efectivo_usd",
+    "efectivo usd",
+    "efectivo en tienda",
+    "divisa",
+    "usd",
+    "$",
+    "zinli",
+    "binance",
+    "paypal",
+    "pago_divisas",
+    "pago divisas",
+  ].some((m) => clean.includes(m));
 }
 
 /**
@@ -161,7 +194,10 @@ export function formatWhatsAppOrderMessage(payload: WhatsAppOrderPayload): strin
   });
 
   text += `*${EMOJI.coin} Total USD: $${payload.totalUsd.toFixed(2)}*\n`;
-  text += `*${EMOJI.flagVe} Total Bs (BCV ${payload.bcvRate.toFixed(2)}): Bs. ${payload.totalVes.toLocaleString("es-VE", { minimumFractionDigits: 2 })}*\n\n`;
+  if (!isDivisasPaymentMethod(payload.paymentMethod)) {
+    text += `*${EMOJI.flagVe} Total Bs (BCV ${payload.bcvRate.toFixed(2)}): Bs. ${payload.totalVes.toLocaleString("es-VE", { minimumFractionDigits: 2 })}*\n`;
+  }
+  text += `\n`;
 
   text += `_________________________\n\n`;
   text += `*${payload.customerName}*\n`;
@@ -184,7 +220,7 @@ export function formatWhatsAppOrderMessage(payload: WhatsAppOrderPayload): strin
  * Returns official universal WhatsApp API link with Unicode escape string
  */
 export function getWhatsAppUrl(payload: WhatsAppOrderPayload, phoneOverride?: string): string {
-  const rawPhone = phoneOverride || process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "584129831561";
+  const rawPhone = phoneOverride || process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "584220296537";
   const phone = rawPhone.replace(/[^0-9]/g, "");
   const text = formatWhatsAppOrderMessage(payload);
   return `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`;

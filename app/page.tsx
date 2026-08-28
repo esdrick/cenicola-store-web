@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import StoreNavbar from "@/components/store/StoreNavbar";
 import StoreFooter from "@/components/store/StoreFooter";
@@ -90,7 +91,7 @@ export default function StoreHomePage() {
   const allCategoryPills = Array.from(new Set([...defaultCategories, ...categories]));
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-sans" suppressHydrationWarning>
+    <div className="min-h-screen bg-white flex flex-col font-sans">
       <StoreNavbar
         cartCount={cart.reduce((s, i) => s + i.quantity, 0)}
         onOpenCart={() => setCartOpen(true)}
@@ -102,9 +103,17 @@ export default function StoreHomePage() {
 
       <main className="flex-1">
         {/* Lefties Editorial Hero Banner */}
-        <section className="relative h-[80vh] sm:h-[85vh] bg-black text-white flex items-end justify-start p-6 sm:p-14 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-10" />
-          <div className="absolute inset-0 opacity-85 bg-[url('/hero-banner.png')] bg-cover bg-center" />
+        <section className="relative h-[80vh] sm:h-[85vh] bg-slate-950 text-white flex items-end justify-start p-6 sm:p-14 overflow-hidden">
+          <Image
+            src="/hero-banner.jpg"
+            alt="Colección 2026 Q' FRANELAS"
+            fill
+            priority
+            quality={85}
+            sizes="100vw"
+            className="object-cover object-center opacity-85 transition-opacity duration-700 pointer-events-none"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-10 pointer-events-none" />
 
           <div className="relative z-20 max-w-xl space-y-3">
             <span className="text-[11px] uppercase tracking-[0.25em] font-normal text-slate-300 block">

@@ -37,16 +37,16 @@ function TikTokIcon({ className = "w-4 h-4" }: { className?: string }) {
 }
 
 export default function StoreFooter() {
-  const whatsappPhone = process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "584129831561";
+  const whatsappPhone = process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "584220296537";
   const whatsappUrl = `https://wa.me/${whatsappPhone}`;
   const instagramUrl = "https://www.instagram.com/quefranelas?igsh=MWYzZm11dmd0NjVhcQ==";
   const tiktokUrl = "https://www.tiktok.com/@quefranelas";
 
   return (
-    <footer className="w-full bg-white text-black border-t border-slate-200 font-sans selection:bg-black selection:text-white" suppressHydrationWarning>
+    <footer className="w-full bg-white text-black border-t border-slate-200 font-sans selection:bg-black selection:text-white">
       {/* Top Social Media Header Bar - Primary Position Above Banner */}
-      <div className="border-b border-slate-100 py-6 px-4 sm:px-8 lg:px-12 bg-white">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 text-xs uppercase tracking-[0.15em] sm:tracking-[0.2em] font-medium">
+      <div className="border-b border-slate-100 py-6 px-4 sm:px-8 lg:px-12 bg-white w-full">
+        <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 text-xs uppercase tracking-[0.15em] sm:tracking-[0.2em] font-medium">
           <span className="text-[10px] text-slate-400 font-semibold tracking-[0.2em] sm:tracking-[0.25em]">
             SOCIAL & CONTACTO
           </span>
@@ -85,8 +85,8 @@ export default function StoreFooter() {
       </div>
 
       {/* Value Props Bar - Minimalist Editorial Style */}
-      <div className="border-b border-slate-100 py-10 px-4 sm:px-8 lg:px-12 bg-slate-50/50">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="border-b border-slate-100 py-10 px-4 sm:px-8 lg:px-12 bg-slate-50/50 w-full">
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10">
           <div className="flex items-start gap-3.5">
             <Truck className="w-5 h-5 text-black shrink-0 stroke-[1.25] mt-0.5" />
             <div>
@@ -147,14 +147,14 @@ export default function StoreFooter() {
       </div>
 
       {/* Main Footer Links - Lefties Grid Layout */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-16 grid grid-cols-1 md:grid-cols-3 gap-12 text-xs">
+      <div className="w-full px-4 sm:px-8 lg:px-12 py-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 text-xs">
         {/* Brand Info Column */}
-        <div className="space-y-3 pr-4">
+        <div className="space-y-3 pr-2">
           <span className="font-sans text-xl font-bold tracking-[0.05em] text-black uppercase block">
             Q´FRANELAS
           </span>
           <p className="text-xs text-slate-500 leading-relaxed max-w-sm">
-            Tienda de ropa moderna en Venezuela. Ofrecemos moda, elegancia y la mejor experiencia de compra online con entrega rápida.
+            Tienda de ropa moderna en Venezuela. Ofrecemos moda, elegancia y la mejor experiencia de compra online con entrega rápida a todo el país.
           </p>
           <p className="text-[10px] uppercase tracking-[0.2em] font-medium text-slate-400 pt-2 inline-flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5 text-slate-500 stroke-[1.5]" />
@@ -179,13 +179,37 @@ export default function StoreFooter() {
               </Link>
             </li>
             <li>
-              <Link href="/checkout" className="hover:text-black transition-colors">
-                FINALIZAR COMPRA
+              <Link href="/consultar-orden" className="hover:text-black transition-colors">
+                CONSULTAR MI ORDEN
               </Link>
             </li>
             <li>
               <Link href="/contacto" className="hover:text-black transition-colors">
-                ¿DÓNDE ENCONTRARNOS?
+                TIENDAS & CONTACTO
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Policies & Legal Column */}
+        <div>
+          <h5 className="font-semibold text-black text-[11px] uppercase tracking-[0.2em] mb-4">
+            POLÍTICAS & AYUDA
+          </h5>
+          <ul className="space-y-3 text-xs uppercase tracking-wider text-slate-600">
+            <li>
+              <Link href="/politicas/envios" className="hover:text-black transition-colors">
+                ENVÍOS Y ENTREGAS
+              </Link>
+            </li>
+            <li>
+              <Link href="/politicas/terminos-condiciones" className="hover:text-black transition-colors">
+                TÉRMINOS Y CONDICIONES
+              </Link>
+            </li>
+            <li>
+              <Link href="/politicas/privacidad" className="hover:text-black transition-colors">
+                POLÍTICA DE PRIVACIDAD
               </Link>
             </li>
           </ul>
@@ -227,7 +251,7 @@ export default function StoreFooter() {
                 </span>
               </div>
               <span className="text-slate-500 text-[11px] pl-5 block">
-                Bolívares (VES)
+                Bolívares (VES) a Tasa BCV
               </span>
             </li>
             <li>
@@ -246,13 +270,23 @@ export default function StoreFooter() {
       </div>
 
       {/* Lefties Minimalist Bottom Bar */}
-      <div className="border-t border-slate-100 py-8 px-4 sm:px-8 lg:px-12 text-[10px] text-slate-500 uppercase tracking-widest mt-4">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="border-t border-slate-100 py-8 px-4 sm:px-8 lg:px-12 text-[10px] text-slate-500 uppercase tracking-widest mt-4 w-full">
+        <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4">
           <p>© {new Date().getFullYear()} Q´FRANELAS. TODOS LOS DERECHOS RESERVADOS.</p>
-          <div className="flex items-center gap-6">
-            <span>VENEZUELA</span>
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+            <Link href="/politicas/envios" className="hover:text-black transition-colors">
+              ENVÍOS
+            </Link>
+            <span>•</span>
+            <Link href="/politicas/terminos-condiciones" className="hover:text-black transition-colors">
+              TÉRMINOS
+            </Link>
+            <span>•</span>
+            <Link href="/politicas/privacidad" className="hover:text-black transition-colors">
+              PRIVACIDAD
+            </Link>
             <span>|</span>
-            <span>ESPAÑOL</span>
+            <span>VENEZUELA</span>
           </div>
         </div>
       </div>

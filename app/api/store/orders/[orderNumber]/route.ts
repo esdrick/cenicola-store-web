@@ -23,6 +23,7 @@ export async function GET(
           },
         },
         payments: {
+          orderBy: { created_at: "desc" },
           select: {
             id: true,
             payment_type: true,

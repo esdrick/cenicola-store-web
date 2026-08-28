@@ -245,7 +245,7 @@ export default function ProductDetailPage() {
   const hexBg = COLOR_HEX_MAP[colorKey] || (colorKey ? colorKey : "#000000");
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-sans text-black" suppressHydrationWarning>
+    <div className="min-h-screen bg-white flex flex-col font-sans text-black">
       <StoreNavbar
         cartCount={cart.reduce((s, i) => s + i.quantity, 0)}
         onOpenCart={() => setCartOpen(true)}

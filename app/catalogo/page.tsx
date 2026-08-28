@@ -242,7 +242,7 @@ function CatalogContent() {
   const allCategoryPills = Array.from(new Set([...defaultCategories, ...categories]));
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-sans" suppressHydrationWarning>
+    <div className="min-h-screen bg-white flex flex-col font-sans">
       <StoreNavbar
         cartCount={cart.reduce((s, i) => s + i.quantity, 0)}
         onOpenCart={() => setCartOpen(true)}

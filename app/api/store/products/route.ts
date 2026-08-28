@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getTasa } from "@/lib/tasa-cambio";
 
+import { normalizeText } from "@/lib/text";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
@@ -78,16 +80,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (search) {
-      whereConditions.push({
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { type: { contains: search, mode: "insensitive" } },
-          { color: { contains: search, mode: "insensitive" } },
-        ],
-      });
-    }
-
     let products = await prisma.product.findMany({
       where: { AND: whereConditions },
       select: {
@@ -116,6 +108,44 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { created_at: "desc" },
     });
+
+    if (search?.trim()) {
+      const normQ = normalizeText(search.trim());
+      const rawTerms = normQ.split(/\s+/).filter(Boolean);
+
+      const terms: string[] = [];
+      for (const t of rawTerms) {
+        terms.push(t);
+        if (["camisetas", "camiseta", "camisa", "camisas"].includes(t)) {
+          terms.push("camiseta", "camis", "top", "franela", "remera");
+        } else if (["pantalones", "pantalon", "shorts", "short"].includes(t)) {
+          terms.push("pantalon", "short", "legging", "jogger", "bermuda", "mono");
+        } else if (["basicas", "basica", "basicos", "basico"].includes(t)) {
+          terms.push("basica", "basico", "franela");
+        } else if (["mujer", "damas", "dama", "chica", "chicas"].includes(t)) {
+          terms.push("mujer", "dama", "damas", "chica");
+        } else if (["hombre", "caballeros", "caballero", "chico", "chicos"].includes(t)) {
+          terms.push("hombre", "caballero", "caballeros", "chico");
+        } else if (["ninos", "ninas", "nino", "nina", "infantil"].includes(t)) {
+          terms.push("nino", "nina", "infantil");
+        }
+      }
+
+      products = products.filter((p) => {
+        const nameNorm = normalizeText(p.name);
+        const typeNorm = p.type ? normalizeText(p.type) : "";
+        const colorNorm = p.color ? normalizeText(p.color) : "";
+        const descNorm = p.description ? normalizeText(p.description) : "";
+
+        return terms.some((term) =>
+          nameNorm.includes(term) ||
+          typeNorm.includes(term) ||
+          colorNorm.includes(term) ||
+          descNorm.includes(term) ||
+          p.variants.some((v) => normalizeText(v.size).includes(term) || normalizeText(v.sku).includes(term))
+        );
+      });
+    }
 
     // Fallback: If filtering produced 0 items, fetch all active items so the catalog is never completely empty
     if (products.length === 0 && category) {

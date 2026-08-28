@@ -18,10 +18,10 @@ export function formatDocenas(unidades: number): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function generateOrderNumber(tx: any): Promise<string> {
+export async function generateOrderNumber(tx: any, customPrefix = "ORD"): Promise<string> {
   const now = new Date();
   const dateStr = getVenezuelaCompactDateString(now);
-  const prefix = `ORD-${dateStr}-`;
+  const prefix = `${customPrefix}-${dateStr}-`;
 
   // Find the order created today with the highest sequence number
   const lastOrder = await tx.order.findFirst({

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ShoppingBag, Heart, Search, Menu, X } from "lucide-react";
+import { ShoppingBag, Heart, Search, Menu, X, User } from "lucide-react";
 
 type StoreNavbarProps = {
   cartCount: number;
@@ -28,9 +28,9 @@ export default function StoreNavbar({
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 bg-white text-black border-b border-slate-200" suppressHydrationWarning>
+    <header className="sticky top-0 z-40 bg-white text-black border-b border-slate-200">
       {/* Top Ticker Bar - Clean Customer-Facing Announcement */}
-      <div className="bg-black text-white py-1.5 px-3 text-[10px] sm:text-[11px] uppercase tracking-[0.15em] font-medium overflow-hidden border-b border-slate-900" suppressHydrationWarning>
+      <div className="bg-black text-white py-1.5 px-3 text-[10px] sm:text-[11px] uppercase tracking-[0.15em] font-medium overflow-hidden border-b border-slate-900">
         {/* Mobile View: Infinite Smooth Horizontal Marquee Slider */}
         <div className="sm:hidden relative w-full overflow-hidden whitespace-nowrap">
           <div className="animate-marquee items-center gap-6">
@@ -94,9 +94,9 @@ export default function StoreNavbar({
           </span>
         </Link>
 
-        {/* Right: Search, Wishlist, Account, Cart */}
+        {/* Right: 1. Buscar, 2. Perfil, 3. Corazón, 4. Carrito */}
         <div className="flex items-center gap-2 sm:gap-4 lg:gap-5">
-          {/* Search Trigger Button */}
+          {/* 1. Buscar */}
           {onOpenSearch ? (
             <button
               onClick={onOpenSearch}
@@ -112,7 +112,17 @@ export default function StoreNavbar({
             </Link>
           )}
 
-          {/* Wishlist Button */}
+          {/* 2. Perfil / Cuenta */}
+          <Link
+            href="/cuenta"
+            className="p-1 text-black hover:opacity-60 transition-opacity flex items-center gap-1"
+            title="Mi Cuenta / Mis Pedidos"
+            aria-label="Mi Cuenta"
+          >
+            <User className="w-4 h-4 sm:w-5 sm:h-5 stroke-[1.5]" />
+          </Link>
+
+          {/* 3. Corazón / Lista de Deseos */}
           <button
             onClick={onOpenWishlist}
             className="p-1 text-black hover:opacity-60 transition-opacity relative flex items-center gap-1"
@@ -121,20 +131,20 @@ export default function StoreNavbar({
           >
             <Heart className="w-4 h-4 sm:w-5 sm:h-5 stroke-[1.5]" />
             {mounted && wishlistCount > 0 && (
-              <span className="text-[9px] sm:text-[10px] font-bold text-red-600 font-mono tracking-tighter" suppressHydrationWarning>
+              <span className="text-[9px] sm:text-[10px] font-bold text-red-600 font-mono tracking-tighter">
                 ({wishlistCount})
               </span>
             )}
           </button>
 
-          {/* Cart Button */}
+          {/* 4. Carrito */}
           <button
             onClick={onOpenCart}
             className="relative p-1 text-black hover:opacity-60 transition-opacity flex items-center gap-1"
             aria-label="Carrito de compras"
           >
             <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 stroke-[1.5]" />
-            <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider uppercase" suppressHydrationWarning>
+            <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider uppercase">
               ({mounted ? cartCount : 0})
             </span>
           </button>

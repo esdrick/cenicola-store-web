@@ -1,5 +1,5 @@
 // Módulo de envío de correos electrónicos para Q´ FRANELAS (Tienda Web E-Commerce)
-// Soporta Resend API (3.000 correos/mes gratis) y fallback SMTP/Nodemailer.
+// Soporta Resend API y fallback SMTP/Nodemailer con diseño minimalista tipo Zara / Lefties.
 
 type EmailPayload = {
   to: string;
@@ -48,64 +48,74 @@ export async function sendEmail({ to, subject, html }: EmailPayload): Promise<{ 
   return { success: true };
 }
 
-// ─── Plantillas de Correo HTML ───────────────────────────────────────────────
+// ─── Estilos Globales Minimalistas Tipo Zara / Lefties ────────────────────────
 
 const BASE_STYLES = `
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  color: #1a1a1a;
-  background-color: #f9fafb;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: #111111;
+  background-color: #f7f7f7;
   margin: 0;
-  padding: 40px 20px;
+  padding: 40px 15px;
+  -webkit-font-smoothing: antialiased;
 `;
 
 const CARD_STYLES = `
-  max-width: 600px;
+  max-width: 580px;
   margin: 0 auto;
   background: #ffffff;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e5e5e5;
+  padding: 40px 32px;
 `;
 
 const HEADER_STYLES = `
-  background-color: #0f172a;
-  color: #ffffff;
-  padding: 24px;
   text-align: center;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #111111;
+  margin-bottom: 32px;
 `;
 
 const CONTENT_STYLES = `
-  padding: 32px 24px;
   line-height: 1.6;
+  font-size: 13px;
+  color: #222222;
 `;
 
 const BUTTON_STYLES = `
   display: inline-block;
-  background-color: #0f172a;
+  background-color: #000000;
   color: #ffffff !important;
   text-decoration: none;
-  padding: 12px 28px;
-  border-radius: 6px;
-  font-weight: 600;
-  margin-top: 20px;
+  padding: 14px 32px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 24px;
+  text-align: center;
+  border-radius: 0px;
 `;
 
 const FOOTER_STYLES = `
-  background-color: #f1f5f9;
-  padding: 16px;
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e5e5;
   text-align: center;
-  font-size: 12px;
-  color: #64748b;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #888888;
 `;
 
-// 1. Correo: Orden Creada (Pendiente de Verificación de Pago)
+// 1. Correo: Orden Creada (Pendiente de Verificación o Preparación)
 export async function sendOrderCreatedEmail({
   to,
   customerName,
   orderNumber,
   totalUsd,
   totalVes,
+  shippingCompany,
+  address,
+  paymentMethod,
   trackingUrl,
 }: {
   to: string;
@@ -113,31 +123,87 @@ export async function sendOrderCreatedEmail({
   orderNumber: string;
   totalUsd: number;
   totalVes?: number;
+  shippingCompany?: string;
+  address?: string;
+  paymentMethod?: string;
   trackingUrl?: string;
 }) {
+  const isPickup = shippingCompany?.toLowerCase().includes("retiro en tienda");
+  const isCash = paymentMethod?.toLowerCase().includes("efectivo");
+
   const html = `
     <div style="${BASE_STYLES}">
       <div style="${CARD_STYLES}">
         <div style="${HEADER_STYLES}">
-          <h1 style="margin:0; font-size: 22px; letter-spacing: 1px;">Q´ FRANELAS</h1>
-          <p style="margin:4px 0 0; font-size: 13px; color: #94a3b8;">Tienda de Ropa</p>
+          <h1 style="margin:0; font-size: 20px; letter-spacing: 4px; font-weight: 900; color: #000000; text-transform: uppercase;">Q´ FRANELAS</h1>
+          <p style="margin:6px 0 0; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #666666;">CONFIRMACIÓN DE ORDEN</p>
         </div>
+        
         <div style="${CONTENT_STYLES}">
-          <h2 style="margin-top:0; color: #0f172a;">¡Gracias por tu compra, ${customerName}!</h2>
-          <p>Hemos recibido tu pedido <strong>#${orderNumber}</strong> exitosamente. Estamos verificando tu comprobante de pago.</p>
+          <h2 style="margin:0 0 12px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #000000;">¡GRACIAS POR TU COMPRA, ${customerName.toUpperCase()}!</h2>
+          <p style="margin: 0 0 20px; color: #444444;">Hemos recibido tu pedido <strong style="color:#000000; font-family: monospace;">#${orderNumber}</strong> exitosamente.</p>
           
-          <div style="background:#f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0;">
-            <p style="margin: 0 0 8px; font-weight: bold;">Resumen del Pedido:</p>
-            <p style="margin: 4px 0;">Total USD: <strong>$${totalUsd.toFixed(2)}</strong></p>
-            ${totalVes ? `<p style="margin: 4px 0;">Total VES (BCV): <strong>Bs. ${totalVes.toLocaleString("es-VE", { minimumFractionDigits: 2 })}</strong></p>` : ""}
-            <p style="margin: 4px 0;">Estado: <span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:bold;">Pendiente de Pago</span></p>
+          <div style="border: 1px solid #e5e5e5; padding: 20px; margin: 24px 0;">
+            <p style="margin: 0 0 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px; color: #000000;">RESUMEN DE TU PEDIDO</p>
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px; color: #333333;">
+              <tr>
+                <td style="padding: 4px 0; color: #666666;">Total USD:</td>
+                <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #000000; font-family: monospace;">$${totalUsd.toFixed(2)} USD</td>
+              </tr>
+              ${
+                totalVes
+                  ? `
+              <tr>
+                <td style="padding: 4px 0; color: #666666;">Total VES (BCV):</td>
+                <td style="padding: 4px 0; text-align: right; font-weight: 600; color: #000000; font-family: monospace;">Bs. ${totalVes.toLocaleString("es-VE", { minimumFractionDigits: 2 })}</td>
+              </tr>`
+                  : ""
+              }
+              ${
+                shippingCompany
+                  ? `
+              <tr>
+                <td style="padding: 4px 0; color: #666666;">Entrega:</td>
+                <td style="padding: 4px 0; text-align: right; font-weight: 600; color: #000000;">${shippingCompany}</td>
+              </tr>`
+                  : ""
+              }
+              ${
+                paymentMethod
+                  ? `
+              <tr>
+                <td style="padding: 4px 0; color: #666666;">Método de Pago:</td>
+                <td style="padding: 4px 0; text-align: right; font-weight: 600; color: #000000;">${paymentMethod}</td>
+              </tr>`
+                  : ""
+              }
+              <tr>
+                <td style="padding: 4px 0; color: #666666;">Estado de la Orden:</td>
+                <td style="padding: 4px 0; text-align: right; font-weight: 700; text-transform: uppercase; color: #000000; font-size: 11px; letter-spacing: 1px;">${isCash ? "EN PREPARACIÓN" : "PENDIENTE DE PAGO"}</td>
+              </tr>
+            </table>
           </div>
 
-          <p>Tan pronto como nuestro equipo valide la transferencia o Pago Móvil, te notificaremos para enviar tu paquete a embalaje.</p>
-          ${trackingUrl ? `<a href="${trackingUrl}" style="${BUTTON_STYLES}">Ver Estado de mi Pedido</a>` : ""}
+          ${
+            isPickup
+              ? `
+            <div style="border: 1px solid #000000; padding: 20px; margin: 24px 0; background: #fafafa;">
+              <p style="margin: 0 0 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #000000;">DETALLES DE RETIRO EN TIENDA</p>
+              <p style="margin: 4px 0; color: #333333;">Sede: <strong>${shippingCompany}</strong></p>
+              ${address ? `<p style="margin: 4px 0; color: #333333;">Dirección: ${address}</p>` : ""}
+              <p style="margin: 4px 0; color: #333333;">Horario: <strong>Lunes a Sábado: 9:00 AM – 5:00 PM</strong></p>
+              <p style="margin: 8px 0 0; color: #000000; font-weight: 700; border-top: 1px solid #e5e5e5; padding-top: 8px;">Plazo estimado de preparación: 24 a 48 horas hábiles.</p>
+              ${isCash ? `<p style="margin: 8px 0 0; color: #000000; font-weight: 700;">💵 Recuerda llevar el monto USD en efectivo al retirar.</p>` : ""}
+            </div>
+          `
+              : `<p style="color: #666666; margin: 20px 0;">Tan pronto como nuestro equipo valide la transferencia o Pago Móvil, te notificaremos para pasar tu pedido a embalaje.</p>`
+          }
+
+          ${trackingUrl ? `<div style="text-align:center;"><a href="${trackingUrl}" style="${BUTTON_STYLES}">VER ESTADO DE MI ORDEN</a></div>` : ""}
         </div>
+
         <div style="${FOOTER_STYLES}">
-          <p style="margin:0;">Q´ FRANELAS Store — Venezuela</p>
+          <p style="margin:0;">Q´ FRANELAS STORE — VENEZUELA</p>
         </div>
       </div>
     </div>
@@ -145,12 +211,69 @@ export async function sendOrderCreatedEmail({
 
   return sendEmail({
     to,
-    subject: `¡Hemos recibido tu pedido #${orderNumber}! - Q´ FRANELAS`,
+    subject: `Confirmación de Pedido #${orderNumber} — Q´ FRANELAS`,
     html,
   });
 }
 
-// 2. Correo: Pago Aprobado -> En Embalaje
+// 2. Correo: Pedido Listo para Retiro en Tienda
+export async function sendOrderReadyForPickupEmail({
+  to,
+  customerName,
+  orderNumber,
+  storeOfficeName,
+  storeOfficeAddress,
+  totalUsd,
+  isCash,
+  trackingUrl,
+}: {
+  to: string;
+  customerName: string;
+  orderNumber: string;
+  storeOfficeName: string;
+  storeOfficeAddress: string;
+  totalUsd: number;
+  isCash?: boolean;
+  trackingUrl?: string;
+}) {
+  const html = `
+    <div style="${BASE_STYLES}">
+      <div style="${CARD_STYLES}">
+        <div style="${HEADER_STYLES}">
+          <h1 style="margin:0; font-size: 20px; letter-spacing: 4px; font-weight: 900; color: #000000; text-transform: uppercase;">Q´ FRANELAS</h1>
+          <p style="margin:6px 0 0; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #666666;">PEDIDO LISTO EN TIENDA</p>
+        </div>
+        
+        <div style="${CONTENT_STYLES}">
+          <h2 style="margin:0 0 12px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #000000;">¡TU PEDIDO ESTÁ LISTO PARA RETIRAR!</h2>
+          <p style="margin:0 0 16px; color: #444444;">Hola <strong>${customerName.toUpperCase()}</strong>, tus prendas de la orden <strong style="font-family: monospace;">#${orderNumber}</strong> se encuentran empacadas y listas en tienda física.</p>
+          
+          <div style="border: 1px solid #000000; padding: 20px; margin: 24px 0; background: #fafafa;">
+            <p style="margin: 0 0 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #000000;">PUNTO DE RETIRO</p>
+            <p style="margin: 4px 0; color: #333333;">Sede: <strong>${storeOfficeName}</strong></p>
+            <p style="margin: 4px 0; color: #333333;">Dirección: <strong>${storeOfficeAddress}</strong></p>
+            <p style="margin: 4px 0; color: #333333;">Horario: <strong>Lunes a Sábado: 9:00 AM – 5:00 PM</strong></p>
+            ${isCash ? `<p style="margin: 10px 0 0; color: #000000; font-weight: 700; border-top: 1px solid #e5e5e5; padding-top: 8px;">💵 Monto a pagar en caja: $${totalUsd.toFixed(2)} USD en efectivo.</p>` : ""}
+          </div>
+
+          ${trackingUrl ? `<div style="text-align:center;"><a href="${trackingUrl}" style="${BUTTON_STYLES}">VER DETALLES DE LA ORDEN</a></div>` : ""}
+        </div>
+
+        <div style="${FOOTER_STYLES}">
+          <p style="margin:0;">Q´ FRANELAS STORE — VENEZUELA</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `¡Tu pedido #${orderNumber} está listo para retirar! — Q´ FRANELAS`,
+    html,
+  });
+}
+
+// 3. Correo: Pago Aprobado -> En Embalaje
 export async function sendPaymentApprovedEmail({
   to,
   customerName,
@@ -166,18 +289,21 @@ export async function sendPaymentApprovedEmail({
     <div style="${BASE_STYLES}">
       <div style="${CARD_STYLES}">
         <div style="${HEADER_STYLES}">
-          <h1 style="margin:0; font-size: 22px;">Q´ FRANELAS</h1>
+          <h1 style="margin:0; font-size: 20px; letter-spacing: 4px; font-weight: 900; color: #000000; text-transform: uppercase;">Q´ FRANELAS</h1>
+          <p style="margin:6px 0 0; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #666666;">PAGO CONFIRMADO</p>
         </div>
+        
         <div style="${CONTENT_STYLES}">
-          <h2 style="color: #166534; margin-top:0;">¡Pago Verificado con Éxito! 🎉</h2>
-          <p>Hola <strong>${customerName}</strong>,</p>
-          <p>Tu pago para la orden <strong>#${orderNumber}</strong> ha sido verificado satisfactoriamente por nuestro equipo.</p>
-          <p>Tu pedido ha pasado inmediatamente al departamento de <strong>Embalaje</strong>. Estamos preparando tus prendas para ser enviadas.</p>
+          <h2 style="margin:0 0 12px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #000000;">PAGO VERIFICADO CON ÉXITO</h2>
+          <p style="margin:0 0 16px; color: #444444;">Hola <strong>${customerName.toUpperCase()}</strong>,</p>
+          <p style="margin:0 0 16px; color: #444444;">Tu pago para la orden <strong style="font-family: monospace;">#${orderNumber}</strong> ha sido verificado satisfactoriamente.</p>
+          <p style="margin:0 0 20px; color: #444444;">Tu pedido ha pasado inmediatamente al departamento de <strong>EMBALAJE</strong>.</p>
           
-          ${trackingUrl ? `<a href="${trackingUrl}" style="${BUTTON_STYLES}">Seguir mi Pedido</a>` : ""}
+          ${trackingUrl ? `<div style="text-align:center;"><a href="${trackingUrl}" style="${BUTTON_STYLES}">SEGUIR MI PEDIDO</a></div>` : ""}
         </div>
+
         <div style="${FOOTER_STYLES}">
-          <p style="margin:0;">Q´ FRANELAS Store — Venezuela</p>
+          <p style="margin:0;">Q´ FRANELAS STORE — VENEZUELA</p>
         </div>
       </div>
     </div>
@@ -185,12 +311,12 @@ export async function sendPaymentApprovedEmail({
 
   return sendEmail({
     to,
-    subject: `¡Pago Aprobado! Tu pedido #${orderNumber} está en embalaje - Q´ FRANELAS`,
+    subject: `Pago Aprobado: Pedido #${orderNumber} en embalaje — Q´ FRANELAS`,
     html,
   });
 }
 
-// 3. Correo: Pago Rechazado
+// 4. Correo: Pago Rechazado
 export async function sendPaymentRejectedEmail({
   to,
   customerName,
@@ -208,23 +334,26 @@ export async function sendPaymentRejectedEmail({
     <div style="${BASE_STYLES}">
       <div style="${CARD_STYLES}">
         <div style="${HEADER_STYLES}">
-          <h1 style="margin:0; font-size: 22px;">Q´ FRANELAS</h1>
+          <h1 style="margin:0; font-size: 20px; letter-spacing: 4px; font-weight: 900; color: #000000; text-transform: uppercase;">Q´ FRANELAS</h1>
+          <p style="margin:6px 0 0; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #666666;">NOTIFICACIÓN DE PAGO</p>
         </div>
+        
         <div style="${CONTENT_STYLES}">
-          <h2 style="color: #991b1b; margin-top:0;">Atención: Problema con el Pago del Pedido #${orderNumber}</h2>
-          <p>Hola <strong>${customerName}</strong>,</p>
-          <p>Lamentamos informarte que no pudimos verificar tu pago para el pedido <strong>#${orderNumber}</strong>.</p>
+          <h2 style="margin:0 0 12px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #000000;">PROBLEMA CON EL PAGO DE LA ORDEN #${orderNumber}</h2>
+          <p style="margin:0 0 16px; color: #444444;">Hola <strong>${customerName.toUpperCase()}</strong>,</p>
+          <p style="margin:0 0 20px; color: #444444;">No pudimos verificar el pago asignado a la orden <strong style="font-family: monospace;">#${orderNumber}</strong>.</p>
           
-          <div style="background:#fef2f2; border-left: 4px solid #ef4444; padding: 16px; margin: 20px 0; border-radius: 4px;">
-            <p style="margin:0; font-weight: bold; color: #991b1b;">Motivo del Rechazo:</p>
-            <p style="margin: 4px 0 0; color: #7f1d1d;">${rejectionReason}</p>
+          <div style="border: 1px solid #111111; padding: 18px; margin: 24px 0; background: #fafafa;">
+            <p style="margin: 0 0 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #000000;">MOTIVO DEL RECHAZO:</p>
+            <p style="margin: 0; color: #333333;">${rejectionReason}</p>
           </div>
 
-          <p>Por favor, revisa tus datos de pago o adjunta un nuevo comprobante válido para procesar tu orden.</p>
-          ${uploadUrl ? `<a href="${uploadUrl}" style="${BUTTON_STYLES}">Volver a Subir Comprobante</a>` : ""}
+          <p style="color: #666666; margin-bottom: 20px;">Por favor, revisa los datos o sube un comprobante válido para procesar tu orden.</p>
+          ${uploadUrl ? `<div style="text-align:center;"><a href="${uploadUrl}" style="${BUTTON_STYLES}">VOLVER A SUBIR COMPROBANTE</a></div>` : ""}
         </div>
+
         <div style="${FOOTER_STYLES}">
-          <p style="margin:0;">Q´ FRANELAS Store — Venezuela</p>
+          <p style="margin:0;">Q´ FRANELAS STORE — VENEZUELA</p>
         </div>
       </div>
     </div>
@@ -232,12 +361,12 @@ export async function sendPaymentRejectedEmail({
 
   return sendEmail({
     to,
-    subject: `Atención: Pago no aprobado para el pedido #${orderNumber} - Q´ FRANELAS`,
+    subject: `Atención: Pago no aprobado para pedido #${orderNumber} — Q´ FRANELAS`,
     html,
   });
 }
 
-// 4. Correo: Pedido Enviado con Guía y Foto
+// 5. Correo: Pedido Enviado con Guía y Foto
 export async function sendOrderShippedEmail({
   to,
   customerName,
@@ -257,29 +386,36 @@ export async function sendOrderShippedEmail({
     <div style="${BASE_STYLES}">
       <div style="${CARD_STYLES}">
         <div style="${HEADER_STYLES}">
-          <h1 style="margin:0; font-size: 22px;">Q´ FRANELAS</h1>
+          <h1 style="margin:0; font-size: 20px; letter-spacing: 4px; font-weight: 900; color: #000000; text-transform: uppercase;">Q´ FRANELAS</h1>
+          <p style="margin:6px 0 0; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #666666;">GUÍA DE ENVÍO</p>
         </div>
+        
         <div style="${CONTENT_STYLES}">
-          <h2 style="color: #0f172a; margin-top:0;">¡Tu Pedido ha sido Enviado! 🚚</h2>
-          <p>Hola <strong>${customerName}</strong>,</p>
-          <p>¡Buenas noticias! Tu paquete de la orden <strong>#${orderNumber}</strong> ya fue empacado y entregado a la empresa de envíos.</p>
+          <h2 style="margin:0 0 12px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #000000;">¡TU PEDIDO HA SIDO ENVIADO!</h2>
+          <p style="margin:0 0 16px; color: #444444;">Hola <strong>${customerName.toUpperCase()}</strong>,</p>
+          <p style="margin:0 0 20px; color: #444444;">Tu paquete de la orden <strong style="font-family: monospace;">#${orderNumber}</strong> ya fue empacado y entregado a la agencia de envíos.</p>
           
-          <div style="background:#f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 8px; margin: 20px 0;">
-            ${shippingCompany ? `<p style="margin:4px 0;">Empresa de Envío: <strong>${shippingCompany}</strong></p>` : ""}
-            ${trackingNumber ? `<p style="margin:4px 0;">Número de Guía / Rastreo: <strong style="font-size: 16px; color: #166534;">${trackingNumber}</strong></p>` : ""}
+          <div style="border: 1px solid #e5e5e5; padding: 20px; margin: 24px 0;">
+            ${shippingCompany ? `<p style="margin:4px 0; color: #666666;">Empresa: <strong style="color: #000000;">${shippingCompany}</strong></p>` : ""}
+            ${trackingNumber ? `<p style="margin:4px 0; color: #666666;">Número de Guía / Rastreo: <strong style="font-size: 15px; color: #000000; font-family: monospace;">${trackingNumber}</strong></p>` : ""}
           </div>
 
-          ${packagePhotoUrl ? `
-            <div style="text-align:center; margin: 20px 0;">
-              <p style="font-weight:bold; margin-bottom:8px;">Foto del Paquete Empacado:</p>
-              <img src="${packagePhotoUrl}" alt="Foto Paquete" style="max-width: 100%; border-radius: 8px; border: 1px solid #e5e7eb;" />
+          ${
+            packagePhotoUrl
+              ? `
+            <div style="text-align:center; margin: 24px 0;">
+              <p style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; color: #000000;">FOTO DEL PAQUETE EMPACADO</p>
+              <img src="${packagePhotoUrl}" alt="Foto Paquete" style="max-width: 100%; border: 1px solid #e5e5e5;" />
             </div>
-          ` : ""}
+          `
+              : ""
+          }
 
-          <p>¡Esperamos que disfrutes tus prendas! Gracias por comprar en Q´ FRANELAS.</p>
+          <p style="color: #666666; text-align: center; margin-top: 24px;">¡Gracias por comprar en Q´ FRANELAS!</p>
         </div>
+
         <div style="${FOOTER_STYLES}">
-          <p style="margin:0;">Q´ FRANELAS Store — Venezuela</p>
+          <p style="margin:0;">Q´ FRANELAS STORE — VENEZUELA</p>
         </div>
       </div>
     </div>
@@ -287,7 +423,60 @@ export async function sendOrderShippedEmail({
 
   return sendEmail({
     to,
-    subject: `¡Tu pedido #${orderNumber} ha sido enviado! 🚚 - Q´ FRANELAS`,
+    subject: `¡Tu pedido #${orderNumber} ha sido enviado! — Q´ FRANELAS`,
+    html,
+  });
+}
+
+// 6. Correo: Pedido Cancelado
+export async function sendOrderCancelledEmail({
+  to,
+  customerName,
+  orderNumber,
+  cancellationReason,
+}: {
+  to: string;
+  customerName: string;
+  orderNumber: string;
+  cancellationReason?: string;
+}) {
+  const html = `
+    <div style="${BASE_STYLES}">
+      <div style="${CARD_STYLES}">
+        <div style="${HEADER_STYLES}">
+          <h1 style="margin:0; font-size: 20px; letter-spacing: 4px; font-weight: 900; color: #000000; text-transform: uppercase;">Q´ FRANELAS</h1>
+          <p style="margin:6px 0 0; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #666666;">CANCELACIÓN DE ORDEN</p>
+        </div>
+        
+        <div style="${CONTENT_STYLES}">
+          <h2 style="margin:0 0 12px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #000000;">ORDEN #${orderNumber} CANCELADA</h2>
+          <p style="margin:0 0 16px; color: #444444;">Hola <strong>${customerName.toUpperCase()}</strong>,</p>
+          <p style="margin:0 0 20px; color: #444444;">Te informamos que tu pedido <strong style="font-family: monospace;">#${orderNumber}</strong> ha sido cancelado.</p>
+          
+          ${
+            cancellationReason
+              ? `
+            <div style="border: 1px solid #e5e5e5; padding: 18px; margin: 24px 0; background: #fafafa;">
+              <p style="margin: 0 0 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #000000;">MOTIVO DE LA CANCELACIÓN:</p>
+              <p style="margin: 0; color: #333333;">${cancellationReason}</p>
+            </div>
+          `
+              : ""
+          }
+
+          <p style="color: #666666; font-size: 12px;">Si tienes alguna pregunta, puedes contactarnos a través de nuestra atención en WhatsApp.</p>
+        </div>
+
+        <div style="${FOOTER_STYLES}">
+          <p style="margin:0;">Q´ FRANELAS STORE — VENEZUELA</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Tu pedido #${orderNumber} ha sido cancelado — Q´ FRANELAS`,
     html,
   });
 }
@@ -296,4 +485,82 @@ export function extractCustomerEmail(notes?: string | null): string | null {
   if (!notes) return null;
   const match = notes.match(/\[Correo Web:\s*([^\]]+)\]/i);
   return match ? match[1].trim() : null;
+}
+
+// 7. Correo: PIN de Verificación
+export async function sendVerificationPINCodeEmail(customerName: string, customerEmail: string, pinCode: string) {
+  const html = `
+    <div style="${BASE_STYLES}">
+      <div style="${CARD_STYLES}">
+        <div style="${HEADER_STYLES}">
+          <h1 style="margin:0; font-size: 20px; letter-spacing: 4px; font-weight: 900; color: #000000; text-transform: uppercase;">Q´ FRANELAS</h1>
+          <p style="margin:6px 0 0; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #666666;">VERIFICACIÓN DE CUENTA</p>
+        </div>
+        
+        <div style="${CONTENT_STYLES}; text-align: center;">
+          <h2 style="margin:0 0 12px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #000000;">¡HOLA, ${customerName.toUpperCase()}!</h2>
+          <p style="margin-bottom: 12px; color: #444444;">Tu código PIN de seguridad de 6 dígitos es:</p>
+          
+          <div style="border: 1px solid #000000; padding: 20px 32px; display: inline-block; margin: 20px 0; background: #fafafa;">
+            <span style="font-family: monospace, Courier, sans-serif; font-size: 36px; font-weight: 900; letter-spacing: 10px; color: #000000;">${pinCode}</span>
+          </div>
+
+          <p style="font-size: 12px; color: #888888; margin-top: 12px;">Este código es válido por 15 minutos.</p>
+        </div>
+
+        <div style="${FOOTER_STYLES}">
+          <p style="margin:0;">Q´ FRANELAS STORE — VENEZUELA</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: customerEmail,
+    subject: `Código PIN de Verificación: ${pinCode} — Q´ FRANELAS`,
+    html,
+  });
+}
+
+// 8. Correo: Recuperación de Contraseña
+export async function sendPasswordResetEmail({
+  to,
+  customerName,
+  resetPin,
+}: {
+  to: string;
+  customerName: string;
+  resetPin: string;
+}) {
+  const html = `
+    <div style="${BASE_STYLES}">
+      <div style="${CARD_STYLES}">
+        <div style="${HEADER_STYLES}">
+          <h1 style="margin:0; font-size: 20px; letter-spacing: 4px; font-weight: 900; color: #000000; text-transform: uppercase;">Q´ FRANELAS</h1>
+          <p style="margin:6px 0 0; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #666666;">RECUPERACIÓN DE CONTRASEÑA</p>
+        </div>
+        
+        <div style="${CONTENT_STYLES}; text-align: center;">
+          <h2 style="margin:0 0 12px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #000000;">¡HOLA, ${customerName.toUpperCase()}!</h2>
+          <p style="color: #444444;">Usa el siguiente código PIN de 6 dígitos para restablecer tu contraseña:</p>
+          
+          <div style="border: 1px solid #000000; padding: 20px 32px; display: inline-block; margin: 20px 0; background: #fafafa;">
+            <span style="font-family: monospace; font-size: 36px; font-weight: 900; letter-spacing: 10px; color: #000000;">${resetPin}</span>
+          </div>
+
+          <p style="font-size: 12px; color: #888888;">Este código expira en 15 minutos.</p>
+        </div>
+
+        <div style="${FOOTER_STYLES}">
+          <p style="margin:0;">Q´ FRANELAS STORE — VENEZUELA</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `${resetPin} es tu PIN de recuperación — Q´ FRANELAS`,
+    html,
+  });
 }
