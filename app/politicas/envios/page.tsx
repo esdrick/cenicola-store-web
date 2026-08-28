@@ -78,14 +78,19 @@ export default function EnviosPage() {
               <span className="text-slate-400 mt-1 block">Horario: Lunes a Sábado 9:00 AM – 5:00 PM</span>
             </p>
           </div>
-          <div className="border border-slate-200 p-4 bg-slate-50/50">
-            <span className="font-bold text-xs uppercase tracking-wider text-black block mb-1">
-              Sede Caracas
-            </span>
-            <p className="text-xs text-slate-600">
+          <div className="border border-slate-200 p-4 bg-slate-50 opacity-60 relative select-none">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="font-bold text-xs uppercase tracking-wider text-slate-500 block">
+                Sede Caracas
+              </span>
+              <span className="text-[9px] font-semibold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-xs uppercase tracking-wider">
+                Próximamente
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
               Mercado Las Flores, Pasillo 1, Puesto #43. Caracas.
               <br />
-              <span className="text-slate-400 mt-1 block">Horario: Lunes a Sábado 9:00 AM – 5:00 PM</span>
+              <span className="text-slate-400 mt-1 block">Horario: Próximamente disponible</span>
             </p>
           </div>
         </div>
