@@ -140,12 +140,13 @@ export async function POST(req: NextRequest) {
       email: cleanEmail,
       message: `Hemos enviado un código PIN de 6 dígitos a ${cleanEmail}. Ingrésalo para confirmar tu correo.`,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("POST /api/store/auth/register error:", err);
-    if (err?.code === "P2002") {
-      const targets = Array.isArray(err?.meta?.target)
-        ? err.meta.target.join(" ")
-        : String(err?.meta?.target || "");
+    const errorObj = err as { code?: string; meta?: { target?: string | string[] } };
+    if (errorObj?.code === "P2002") {
+      const targets = Array.isArray(errorObj?.meta?.target)
+        ? errorObj.meta.target.join(" ")
+        : String(errorObj?.meta?.target || "");
       if (targets.includes("email")) {
         return NextResponse.json(
           { error: "Este correo electrónico ya se encuentra registrado. Inicia sesión." },
