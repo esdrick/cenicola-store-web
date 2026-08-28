@@ -104,8 +104,15 @@ export async function POST(req: NextRequest) {
       console.log("==================================================\n");
     }
 
-    // Try sending email PIN code
-    sendVerificationPINCodeEmail(customer.name, cleanEmail, pinCode).catch(console.error);
+    // Send email PIN code (await execution so Serverless function on Vercel does not terminate early)
+    const emailRes = await sendVerificationPINCodeEmail(customer.name, cleanEmail, pinCode).catch((err) => ({
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    }));
+
+    if (!emailRes.success) {
+      console.error(`[REGISTER EMAIL ERROR] No se pudo entregar el correo con PIN a ${cleanEmail}:`, emailRes.error);
+    }
 
     return NextResponse.json({
       success: true,

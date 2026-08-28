@@ -29,18 +29,21 @@ export async function sendEmail({ to, subject, html }: EmailPayload): Promise<{ 
       });
 
       if (res.ok) {
+        console.log(`[Email Delivered - Resend] To: ${to} | Subject: "${subject}"`);
         return { success: true };
       }
       const data = await res.json().catch(() => ({}));
-      console.error("[Email Error - Resend]:", data);
-      return { success: false, error: data.message || "Error al enviar correo vía Resend" };
+      const errorMsg = data.message || data.error || `HTTP ${res.status}`;
+      console.error(`[Email Error - Resend HTTP ${res.status}] To: ${to} | Error:`, data);
+      return { success: false, error: `Error al enviar correo vía Resend: ${errorMsg}` };
     } catch (err) {
-      console.error("[Email Error - Resend Fetch]:", err);
-      return { success: false, error: "Error de red al enviar correo" };
+      console.error("[Email Error - Resend Fetch Failure]:", err);
+      return { success: false, error: "Error de red al conectar con Resend" };
     }
   }
 
-  // Fallback para desarrollo / log cuando no hay API keys configuradas
+  // Fallback para desarrollo / log cuando no hay API keys configuradas en el entorno
+  console.warn(`[EMAIL WARNING] RESEND_API_KEY no configurada en las variables de entorno.`);
   console.log("--------------------------------------------------");
   console.log(`[SIMULACIÓN DE CORREO ENVIADO A]: ${to}`);
   console.log(`[ASUNTO]: ${subject}`);

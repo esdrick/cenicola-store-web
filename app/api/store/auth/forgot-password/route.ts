@@ -44,11 +44,18 @@ export async function POST(req: NextRequest) {
     });
 
     // Enviar correo de recuperación
-    sendPasswordResetEmail({
+    const emailRes = await sendPasswordResetEmail({
       to: cleanEmail,
       customerName: customer.name,
       resetPin,
-    }).catch((err) => console.error("Error al enviar correo de recuperación de clave:", err));
+    }).catch((err) => ({
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    }));
+
+    if (!emailRes.success) {
+      console.error(`[FORGOT PASSWORD EMAIL ERROR] No se pudo entregar el correo de recuperación a ${cleanEmail}:`, emailRes.error);
+    }
 
     console.log(`[PASS_RESET_PIN] Sent PIN ${resetPin} to ${cleanEmail}`);
 

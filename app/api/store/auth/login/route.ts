@@ -55,7 +55,14 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      sendVerificationPINCodeEmail(customer.name, cleanEmail, pinCode).catch(console.error);
+      const emailRes = await sendVerificationPINCodeEmail(customer.name, cleanEmail, pinCode).catch((err) => ({
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      }));
+
+      if (!emailRes.success) {
+        console.error(`[LOGIN EMAIL ERROR] No se pudo entregar el correo con PIN a ${cleanEmail}:`, emailRes.error);
+      }
 
       return NextResponse.json(
         {

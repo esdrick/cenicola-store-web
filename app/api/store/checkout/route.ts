@@ -391,8 +391,8 @@ export async function POST(request: NextRequest) {
     const protocol = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
 
-    // 7. Send confirmation email to customer asynchronously
-    sendOrderCreatedEmail({
+    // 7. Send confirmation email to customer (await execution for Vercel serverless stability)
+    const emailRes = await sendOrderCreatedEmail({
       to: result.customer_email,
       customerName: result.customer_name,
       orderNumber: result.order_number,
@@ -402,7 +402,14 @@ export async function POST(request: NextRequest) {
       address: result.address,
       paymentMethod: result.payment_type === "efectivo_usd" ? "Efectivo en Tienda (USD Divisas)" : payment.payment_type,
       trackingUrl: `${baseUrl}/consultar-orden`,
-    }).catch((err) => console.error("Error al enviar correo de confirmación de pedido:", err));
+    }).catch((err) => ({
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    }));
+
+    if (!emailRes.success) {
+      console.error(`[CHECKOUT EMAIL ERROR] No se pudo entregar el correo de orden #${result.order_number} a ${result.customer_email}:`, emailRes.error);
+    }
 
     return NextResponse.json(
       {
