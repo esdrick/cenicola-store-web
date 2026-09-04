@@ -38,6 +38,7 @@ export default function StoreHomePage() {
   const [cart, setCart] = useState<CartItemType[]>([]);
 
   const { wishlistCount } = useWishlist();
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
     try {
@@ -71,6 +72,21 @@ export default function StoreHomePage() {
       .catch(() => setLoading(false));
   }, []);
 
+  // Fotos de las últimas prendas del catálogo para el fondo del Hero
+  const catalogPhotos = products
+    .flatMap((p) => p.photos || [])
+    .filter(Boolean);
+
+  const heroBackgrounds = catalogPhotos.slice(0, 5);
+
+  useEffect(() => {
+    if (heroBackgrounds.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % heroBackgrounds.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [heroBackgrounds.length]);
+
   const handleUpdateQuantity = (variant_id: string, qty: number) => {
     if (qty <= 0) {
       handleRemoveItem(variant_id);
@@ -102,39 +118,85 @@ export default function StoreHomePage() {
       />
 
       <main className="flex-1">
-        {/* Lefties Editorial Hero Banner */}
-        <section className="relative h-[80vh] sm:h-[85vh] bg-slate-950 text-white flex items-end justify-start p-6 sm:p-14 overflow-hidden">
-          <Image
-            src="/hero-banner.jpg"
-            alt="Colección 2026 Q' FRANELAS"
-            fill
-            priority
-            quality={85}
-            sizes="100vw"
-            className="object-cover object-center opacity-85 transition-opacity duration-700 pointer-events-none"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-10 pointer-events-none" />
-
-          <div className="relative z-20 max-w-xl space-y-3">
-            <span className="text-[11px] uppercase tracking-[0.25em] font-normal text-slate-300 block">
-              COLECCIÓN 2026
-            </span>
-            <h1 className="font-sans text-3xl sm:text-5xl lg:text-6xl font-normal uppercase tracking-tight leading-none text-white">
-              NUEVAS TENDENCIAS
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-300 font-normal max-w-md pt-1 leading-relaxed">
-              Prendas confeccionadas con la máxima calidad. Somos fabricantes: viste a la vanguardia o impulsa tu propio negocio al mejor precio. Envíos directos y seguros a toda Venezuela.
-            </p>
-
-            <div className="pt-4 flex items-center gap-3">
-              <Link
-                href="/catalogo"
-                className="inline-flex items-center gap-2 bg-white text-black px-6 py-3 text-xs font-normal uppercase tracking-widest hover:bg-slate-200 transition-colors"
-              >
-                VER TIENDA <ArrowRight className="w-4 h-4" />
-              </Link>
+        {/* Hero Banner: Logo Gigante en la Esquina Superior Derecha, Texto Pegado a la Izquierda */}
+        <section className="relative h-[80vh] sm:h-[85vh] bg-black text-white flex items-end justify-start overflow-hidden border-b border-slate-900">
+          
+          {/* LOGO EN LA ESQUINA SUPERIOR DERECHA (DUPLICADO EN TAMAÑO) */}
+          <div className="absolute top-4 right-4 sm:top-6 sm:right-8 lg:top-8 lg:right-10 z-30 pointer-events-none">
+            <div className="relative h-40 sm:h-56 lg:h-72 w-96 sm:w-[600px] lg:w-[840px] max-w-[90vw]">
+              <Image
+                src="/qfranelas-logo.png"
+                alt="Q' FRANELAS Logo"
+                fill
+                priority
+                sizes="(max-width: 768px) 600px, 840px"
+                className="object-contain object-right pointer-events-none drop-shadow-2xl"
+              />
             </div>
           </div>
+
+          {/* Fotos de Catálogo de Fondo (Más claras y brillantes en móvil y desktop) */}
+          <div className="absolute inset-0 bg-black">
+            {heroBackgrounds.map((photo, idx) => (
+              <Image
+                key={photo + idx}
+                src={photo}
+                alt={`Q' FRANELAS Colección ${idx + 1}`}
+                fill
+                priority={idx === 0}
+                quality={90}
+                sizes="100vw"
+                className={`object-cover object-right md:object-center transition-opacity duration-1000 pointer-events-none ${
+                  idx === currentSlide ? "opacity-95" : "opacity-0"
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Gradientes Aclarados en Móvil / Un toque más oscuro en Pantalla Grande (md/lg) */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/45 sm:via-black/40 md:from-black/85 md:via-black/55 lg:via-black/60 to-transparent z-10 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 z-10 pointer-events-none" />
+
+          {/* Columna Izquierda: Texto e Identidad Pegados a la Izquierda */}
+          <div className="relative z-20 w-full px-3 sm:px-8 lg:px-12 pb-8 sm:pb-14 pt-8 sm:pt-14">
+            <div className="max-w-xl space-y-3 text-left">
+              <span className="text-[11px] uppercase tracking-[0.25em] font-normal text-slate-200 block drop-shadow">
+                COLECCIÓN 2026 · ÚLTIMAS PRENDAS
+              </span>
+              <h1 className="font-sans text-3xl sm:text-5xl lg:text-6xl font-normal uppercase tracking-tight leading-none text-white drop-shadow-md">
+                NUEVAS TENDENCIAS
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-200 font-normal max-w-md pt-1 leading-relaxed drop-shadow">
+                Prendas confeccionadas con la máxima calidad. Somos fabricantes: viste a la vanguardia o impulsa tu propio negocio al mejor precio. Envíos directos y seguros a toda Venezuela.
+              </p>
+
+              <div className="pt-4 flex items-center justify-start">
+                <Link
+                  href="/catalogo"
+                  className="inline-flex items-center gap-2 bg-white text-black px-7 py-3.5 text-xs font-normal uppercase tracking-widest hover:bg-slate-200 transition-colors shadow-lg"
+                >
+                  VER TIENDA <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Indicadores de diapositiva abajo a la derecha */}
+          {heroBackgrounds.length > 1 && (
+            <div className="absolute bottom-6 right-6 sm:bottom-10 sm:right-10 z-20 flex items-center gap-2">
+              {heroBackgrounds.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentSlide(i)}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    i === currentSlide ? "w-6 bg-white" : "w-1.5 bg-white/40"
+                  }`}
+                  aria-label={`Ir a foto ${i + 1}`}
+                />
+              ))}
+            </div>
+          )}
+
         </section>
 
         {/* Lefties Category Strip */}
