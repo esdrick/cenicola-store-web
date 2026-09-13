@@ -10,6 +10,7 @@ import ProductCard from "@/components/store/ProductCard";
 import CartDrawer, { type CartItemType } from "@/components/store/CartDrawer";
 import WishlistDrawer from "@/components/store/WishlistDrawer";
 import SearchDrawer from "@/components/store/SearchDrawer";
+import QuickAddModal, { type QuickAddProduct, type QuickAddProductVariant } from "@/components/store/QuickAddModal";
 import { useWishlist } from "@/components/store/WishlistContext";
 import { ArrowLeft, Check, AlertCircle, Bookmark, ShoppingBag } from "lucide-react";
 
@@ -81,11 +82,11 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<string>("");
   const [selectedVariant, setSelectedVariant] = useState<VariantType | null>(null);
-  const [quantity] = useState(1);
-  const [addedSuccess, setAddedSuccess] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
+  const [quickAddModalOpen, setQuickAddModalOpen] = useState(false);
+  const [quickAddTargetProduct, setQuickAddTargetProduct] = useState<QuickAddProduct | null>(null);
   const [cart, setCart] = useState<CartItemType[]>([]);
 
   const { isInWishlist, toggleWishlist, wishlistCount } = useWishlist();
@@ -140,11 +141,17 @@ export default function ProductDetailPage() {
       .catch(() => setLoading(false));
   }, [productId]);
 
-  const handleAddToCart = () => {
-    if (!product || !selectedVariant) return;
-    if (selectedVariant.stock_online <= 0) return;
+  const handleOpenQuickAddModal = (prodToModal?: QuickAddProduct) => {
+    const target = prodToModal || (product as QuickAddProduct | null);
+    if (!target) return;
+    setQuickAddTargetProduct(target);
+    setQuickAddModalOpen(true);
+  };
 
-    const existingIndex = cart.findIndex((i) => i.variant_id === selectedVariant.id);
+  const handleAddToCartFromModal = (variant: QuickAddProductVariant, qty: number) => {
+    if (!quickAddTargetProduct) return;
+
+    const existingIndex = cart.findIndex((i) => i.variant_id === variant.id);
     let updatedCart: CartItemType[] = [];
 
     if (existingIndex >= 0) {
@@ -152,7 +159,7 @@ export default function ProductDetailPage() {
         idx === existingIndex
           ? {
               ...item,
-              quantity: Math.min(item.quantity + quantity, selectedVariant.stock_online),
+              quantity: Math.min(item.quantity + qty, variant.stock_online),
             }
           : item
       );
@@ -160,28 +167,25 @@ export default function ProductDetailPage() {
       updatedCart = [
         ...cart,
         {
-          variant_id: selectedVariant.id,
-          product_id: product.id,
-          name: product.name,
-          size: selectedVariant.size,
-          color: product.color,
-          photo: product.photos[0] || null,
-          price_usd: selectedVariant.price_usd,
-          price_divisas_usd: selectedVariant.price_divisas_usd ?? selectedVariant.price_usd,
-          price_bundle_usd: selectedVariant.price_bundle_usd,
-          price_bundle_divisas_usd: selectedVariant.price_bundle_divisas_usd,
-          price_mayor_usd: selectedVariant.price_mayor_usd,
-          price_mayor_divisas_usd: selectedVariant.price_mayor_divisas_usd,
-          quantity,
-          stock_online: selectedVariant.stock_online,
+          variant_id: variant.id,
+          product_id: quickAddTargetProduct.id,
+          name: quickAddTargetProduct.name,
+          size: variant.size,
+          color: quickAddTargetProduct.color,
+          photo: quickAddTargetProduct.photos[0] || null,
+          price_usd: variant.price_usd ?? quickAddTargetProduct.price_usd,
+          price_divisas_usd: variant.price_divisas_usd ?? variant.price_usd ?? quickAddTargetProduct.price_usd,
+          price_bundle_usd: variant.price_bundle_usd,
+          price_bundle_divisas_usd: variant.price_bundle_divisas_usd,
+          price_mayor_usd: variant.price_mayor_usd,
+          price_mayor_divisas_usd: variant.price_mayor_divisas_usd,
+          quantity: qty,
+          stock_online: variant.stock_online,
         },
       ];
     }
 
     saveCart(updatedCart);
-    setAddedSuccess(true);
-    setTimeout(() => setAddedSuccess(false), 3000);
-    setCartOpen(true);
   };
 
   const handleUpdateQuantity = (variant_id: string, qty: number) => {
@@ -382,24 +386,13 @@ export default function ProductDetailPage() {
 
             {/* Action Buttons */}
             <div className="pt-3 border-t border-slate-100 space-y-2.5">
-              {addedSuccess && (
-                <div className="p-2.5 bg-black text-white text-[11px] font-normal uppercase tracking-wider flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-400" /> Añadida a la cesta
-                  </span>
-                  <button onClick={() => setCartOpen(true)} className="underline text-[10px]">
-                    Ver Carrito
-                  </button>
-                </div>
-              )}
-
               <div className="flex items-center gap-2.5">
                 <button
-                  onClick={handleAddToCart}
+                  onClick={() => handleOpenQuickAddModal()}
                   disabled={!selectedVariant || selectedVariant.stock_online <= 0}
-                  className="flex-1 bg-black text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 font-normal py-3 px-5 text-[11px] uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 bg-black text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 font-normal py-3.5 px-5 text-[11px] uppercase tracking-widest transition-colors flex items-center justify-center gap-2 rounded-xs shadow-xs"
                 >
-                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <ShoppingBag className="w-4 h-4 stroke-[1.8]" />
                   {!selectedVariant || selectedVariant.stock_online <= 0
                     ? "AGOTADO EN TIENDA"
                     : `AÑADIR A LA CESTA · $${bcvPriceUsd.toFixed(2)}`}
@@ -418,7 +411,7 @@ export default function ProductDetailPage() {
                       total_stock_online: product.variants?.reduce((s, v) => s + v.stock_online, 0) || 0,
                     })
                   }
-                  className={`p-3 border transition-colors flex items-center justify-center shrink-0 ${
+                  className={`p-3.5 border transition-colors flex items-center justify-center shrink-0 rounded-xs ${
                     isFavorite
                       ? "border-black bg-black text-white"
                       : "border-slate-300 bg-white text-black hover:border-black"
@@ -474,7 +467,23 @@ export default function ProductDetailPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
               {relatedProducts.map((rel) => (
-                <ProductCard key={rel.id} {...rel} viewMode="large" />
+                <ProductCard
+                  key={rel.id}
+                  {...rel}
+                  viewMode="large"
+                  onQuickAdd={(pProps) =>
+                    handleOpenQuickAddModal({
+                      id: pProps.id,
+                      name: pProps.name,
+                      type: pProps.type,
+                      color: pProps.color,
+                      photos: pProps.photos,
+                      price_usd: pProps.price_usd,
+                      variants: (pProps.variants || []) as QuickAddProductVariant[],
+                      bcv_rate: product.bcv_rate,
+                    })
+                  }
+                />
               ))}
             </div>
           </section>
@@ -482,6 +491,18 @@ export default function ProductDetailPage() {
       </main>
 
       <StoreFooter />
+
+      <QuickAddModal
+        isOpen={quickAddModalOpen}
+        onClose={() => setQuickAddModalOpen(false)}
+        product={quickAddTargetProduct}
+        onAddToCart={handleAddToCartFromModal}
+        onGoToCatalog={() => router.push("/catalogo")}
+        onGoToCheckout={() => router.push("/checkout")}
+        onOpenCart={() => setCartOpen(true)}
+        cartTotalCount={cart.reduce((s, i) => s + i.quantity, 0)}
+        bcvRate={product.bcv_rate}
+      />
 
       <SearchDrawer
         isOpen={searchDrawerOpen}

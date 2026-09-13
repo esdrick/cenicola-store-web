@@ -10,6 +10,7 @@ import ProductCard from "@/components/store/ProductCard";
 import CartDrawer, { type CartItemType } from "@/components/store/CartDrawer";
 import WishlistDrawer from "@/components/store/WishlistDrawer";
 import SearchDrawer from "@/components/store/SearchDrawer";
+import QuickAddModal, { type QuickAddProduct, type QuickAddProductVariant } from "@/components/store/QuickAddModal";
 import { useWishlist } from "@/components/store/WishlistContext";
 import { ArrowRight, ShoppingBag } from "lucide-react";
 
@@ -35,7 +36,54 @@ export default function StoreHomePage() {
   const [cartOpen, setCartOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
+  const [quickAddModalOpen, setQuickAddModalOpen] = useState(false);
+  const [quickAddTargetProduct, setQuickAddTargetProduct] = useState<QuickAddProduct | null>(null);
   const [cart, setCart] = useState<CartItemType[]>([]);
+
+  const handleOpenQuickAddModal = (prod: QuickAddProduct) => {
+    setQuickAddTargetProduct(prod);
+    setQuickAddModalOpen(true);
+  };
+
+  const handleAddToCartFromModal = (variant: QuickAddProductVariant, qty: number) => {
+    if (!quickAddTargetProduct) return;
+
+    const existingIndex = cart.findIndex((i) => i.variant_id === variant.id);
+    let updatedCart: CartItemType[] = [];
+
+    if (existingIndex >= 0) {
+      updatedCart = cart.map((item, idx) =>
+        idx === existingIndex
+          ? {
+              ...item,
+              quantity: Math.min(item.quantity + qty, variant.stock_online),
+            }
+          : item
+      );
+    } else {
+      updatedCart = [
+        ...cart,
+        {
+          variant_id: variant.id,
+          product_id: quickAddTargetProduct.id,
+          name: quickAddTargetProduct.name,
+          size: variant.size,
+          color: quickAddTargetProduct.color,
+          photo: quickAddTargetProduct.photos[0] || null,
+          price_usd: variant.price_usd ?? quickAddTargetProduct.price_usd,
+          price_divisas_usd: variant.price_divisas_usd ?? variant.price_usd ?? quickAddTargetProduct.price_usd,
+          price_bundle_usd: variant.price_bundle_usd,
+          price_bundle_divisas_usd: variant.price_bundle_divisas_usd,
+          price_mayor_usd: variant.price_mayor_usd,
+          price_mayor_divisas_usd: variant.price_mayor_divisas_usd,
+          quantity: qty,
+          stock_online: variant.stock_online,
+        },
+      ];
+    }
+
+    saveCart(updatedCart);
+  };
 
   const { wishlistCount } = useWishlist();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -255,7 +303,23 @@ export default function StoreHomePage() {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
               {products.slice(0, 8).map((product) => (
-                <ProductCard key={product.id} {...product} viewMode="large" />
+                <ProductCard
+                  key={product.id}
+                  {...product}
+                  viewMode="large"
+                  onQuickAdd={(pProps) =>
+                    handleOpenQuickAddModal({
+                      id: pProps.id,
+                      name: pProps.name,
+                      type: pProps.type,
+                      color: pProps.color,
+                      photos: pProps.photos,
+                      price_usd: pProps.price_usd,
+                      variants: (pProps.variants || []) as QuickAddProductVariant[],
+                      bcv_rate: bcvRate,
+                    })
+                  }
+                />
               ))}
             </div>
           )}
@@ -263,6 +327,18 @@ export default function StoreHomePage() {
       </main>
 
       <StoreFooter />
+
+      <QuickAddModal
+        isOpen={quickAddModalOpen}
+        onClose={() => setQuickAddModalOpen(false)}
+        product={quickAddTargetProduct}
+        onAddToCart={handleAddToCartFromModal}
+        onGoToCatalog={() => router.push("/catalogo")}
+        onGoToCheckout={() => router.push("/checkout")}
+        onOpenCart={() => setCartOpen(true)}
+        cartTotalCount={cart.reduce((s, i) => s + i.quantity, 0)}
+        bcvRate={bcvRate}
+      />
 
       <SearchDrawer
         isOpen={searchDrawerOpen}

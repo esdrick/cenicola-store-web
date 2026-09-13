@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import StoreNavbar from "@/components/store/StoreNavbar";
 import StoreFooter from "@/components/store/StoreFooter";
 import ProductCard from "@/components/store/ProductCard";
@@ -9,6 +9,7 @@ import CartDrawer, { type CartItemType } from "@/components/store/CartDrawer";
 import WishlistDrawer from "@/components/store/WishlistDrawer";
 import FilterDrawer, { type FilterState } from "@/components/store/FilterDrawer";
 import SearchDrawer from "@/components/store/SearchDrawer";
+import QuickAddModal, { type QuickAddProduct, type QuickAddProductVariant } from "@/components/store/QuickAddModal";
 import { useWishlist } from "@/components/store/WishlistContext";
 import { SlidersHorizontal, RefreshCw, ShoppingBag, Columns2, Grid3X3, List } from "lucide-react";
 
@@ -36,6 +37,7 @@ const DEFAULT_FILTERS: FilterState = {
 const ITEMS_PER_PAGE = 12;
 
 function CatalogContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const catParam = searchParams.get("category") || "";
   const qParam = searchParams.get("q") || "";
@@ -51,7 +53,54 @@ function CatalogContent() {
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
+  const [quickAddModalOpen, setQuickAddModalOpen] = useState(false);
+  const [quickAddTargetProduct, setQuickAddTargetProduct] = useState<QuickAddProduct | null>(null);
   const [cart, setCart] = useState<CartItemType[]>([]);
+
+  const handleOpenQuickAddModal = (prod: QuickAddProduct) => {
+    setQuickAddTargetProduct(prod);
+    setQuickAddModalOpen(true);
+  };
+
+  const handleAddToCartFromModal = (variant: QuickAddProductVariant, qty: number) => {
+    if (!quickAddTargetProduct) return;
+
+    const existingIndex = cart.findIndex((i) => i.variant_id === variant.id);
+    let updatedCart: CartItemType[] = [];
+
+    if (existingIndex >= 0) {
+      updatedCart = cart.map((item, idx) =>
+        idx === existingIndex
+          ? {
+              ...item,
+              quantity: Math.min(item.quantity + qty, variant.stock_online),
+            }
+          : item
+      );
+    } else {
+      updatedCart = [
+        ...cart,
+        {
+          variant_id: variant.id,
+          product_id: quickAddTargetProduct.id,
+          name: quickAddTargetProduct.name,
+          size: variant.size,
+          color: quickAddTargetProduct.color,
+          photo: quickAddTargetProduct.photos[0] || null,
+          price_usd: variant.price_usd ?? quickAddTargetProduct.price_usd,
+          price_divisas_usd: variant.price_divisas_usd ?? variant.price_usd ?? quickAddTargetProduct.price_usd,
+          price_bundle_usd: variant.price_bundle_usd,
+          price_bundle_divisas_usd: variant.price_bundle_divisas_usd,
+          price_mayor_usd: variant.price_mayor_usd,
+          price_mayor_divisas_usd: variant.price_mayor_divisas_usd,
+          quantity: qty,
+          stock_online: variant.stock_online,
+        },
+      ];
+    }
+
+    saveCart(updatedCart);
+  };
 
   // Filtering, Pagination and View Mode States
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
@@ -433,7 +482,23 @@ function CatalogContent() {
               }
             >
               {visibleProducts.map((p) => (
-                <ProductCard key={p.id} {...p} viewMode={viewMode} />
+                <ProductCard
+                  key={p.id}
+                  {...p}
+                  viewMode={viewMode}
+                  onQuickAdd={(pProps) =>
+                    handleOpenQuickAddModal({
+                      id: pProps.id,
+                      name: pProps.name,
+                      type: pProps.type,
+                      color: pProps.color,
+                      photos: pProps.photos,
+                      price_usd: pProps.price_usd,
+                      variants: (pProps.variants || []) as QuickAddProductVariant[],
+                      bcv_rate: bcvRate,
+                    })
+                  }
+                />
               ))}
             </div>
 
@@ -474,7 +539,21 @@ function CatalogContent() {
         )}
       </main>
 
-      {/* Drawers */}
+      {/* Drawers & Modals */}
+      <QuickAddModal
+        isOpen={quickAddModalOpen}
+        onClose={() => setQuickAddModalOpen(false)}
+        product={quickAddTargetProduct}
+        onAddToCart={handleAddToCartFromModal}
+        onGoToCatalog={() => {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        onGoToCheckout={() => router.push("/checkout")}
+        onOpenCart={() => setCartOpen(true)}
+        cartTotalCount={cart.reduce((s, i) => s + i.quantity, 0)}
+        bcvRate={bcvRate}
+      />
+
       <SearchDrawer
         isOpen={searchDrawerOpen}
         onClose={() => setSearchDrawerOpen(false)}

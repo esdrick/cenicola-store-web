@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Bookmark } from "lucide-react";
+import { ArrowRight, Bookmark, Plus, ShoppingBag } from "lucide-react";
 import { useWishlist } from "./WishlistContext";
 import SafeImage from "@/components/ui/SafeImage";
 
@@ -14,8 +14,19 @@ type ProductCardProps = {
   price_usd: number;
   price_ves: number;
   total_stock_online: number;
-  variants?: Array<{ id: string; size: string; stock_online: number }>;
+  variants?: Array<{
+    id: string;
+    size: string;
+    stock_online: number;
+    price_usd?: number;
+    price_divisas_usd?: number;
+    price_bundle_usd?: number;
+    price_bundle_divisas_usd?: number;
+    price_mayor_usd?: number;
+    price_mayor_divisas_usd?: number;
+  }>;
   viewMode?: "large" | "compact" | "list";
+  onQuickAdd?: (product: ProductCardProps) => void;
 };
 
 // Simple color hex dictionary for Lefties swatches
@@ -37,18 +48,21 @@ const COLOR_HEX_MAP: Record<string, string> = {
   naranja: "#F97316",
 };
 
-export default function ProductCard({
-  id,
-  name,
-  type,
-  color,
-  photos,
-  price_usd,
-  price_ves,
-  total_stock_online,
-  variants = [],
-  viewMode = "large",
-}: ProductCardProps) {
+export default function ProductCard(props: ProductCardProps) {
+  const {
+    id,
+    name,
+    type,
+    color,
+    photos,
+    price_usd,
+    price_ves,
+    total_stock_online,
+    variants = [],
+    viewMode = "large",
+    onQuickAdd,
+  } = props;
+
   const mainPhoto = photos && photos[0] ? photos[0] : "";
   const hoverPhoto = photos && photos[1] ? photos[1] : mainPhoto;
 
@@ -59,6 +73,14 @@ export default function ProductCard({
     e.preventDefault();
     e.stopPropagation();
     toggleWishlist({ id, name, type, color, photos, price_usd, price_ves, total_stock_online });
+  };
+
+  const handleQuickAddClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onQuickAdd) {
+      onQuickAdd(props);
+    }
   };
 
   const colorKey = (color || "").toLowerCase().trim();
@@ -122,8 +144,8 @@ export default function ProductCard({
           </div>
         </div>
 
-        {/* Right: Price & Wishlist / Details Button */}
-        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+        {/* Right: Price & Wishlist / Quick Add Button */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <span className="font-bold text-black text-xs sm:text-sm tracking-tight">
             ${price_usd.toFixed(2)}
           </span>
@@ -141,9 +163,20 @@ export default function ProductCard({
             />
           </button>
 
+          {onQuickAdd && (
+            <button
+              onClick={handleQuickAddClick}
+              className="inline-flex items-center gap-1 px-2.5 py-1 bg-black text-white text-[10px] font-semibold uppercase tracking-wider hover:bg-slate-800 transition-colors rounded-xs"
+              title="Añadir rápido al carrito"
+            >
+              <Plus className="w-3 h-3" />
+              <span>Añadir</span>
+            </button>
+          )}
+
           <Link
             href={`/producto/${id}`}
-            className="hidden sm:inline-flex items-center gap-1 px-3 py-1 bg-black text-white text-[11px] font-normal uppercase tracking-wider hover:bg-slate-800 transition-colors rounded-xs"
+            className="hidden sm:inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-black text-[11px] font-normal uppercase tracking-wider hover:bg-slate-200 transition-colors rounded-xs border border-slate-200"
           >
             Ver <ArrowRight className="w-3 h-3" />
           </Link>
@@ -189,12 +222,27 @@ export default function ProductCard({
 
         {total_stock_online <= 3 && total_stock_online > 0 && (
           <span
-            className={`absolute bottom-2 left-2 bg-black text-white font-bold uppercase tracking-widest pointer-events-none ${
+            className={`absolute top-2 left-2 bg-black text-white font-bold uppercase tracking-widest pointer-events-none z-10 ${
               isCompact ? "text-[7px] px-1 py-0.5" : "text-[9px] px-2 py-0.5"
             }`}
           >
             ÚLTIMAS UNIDADES
           </span>
+        )}
+
+        {/* Quick Add Button overlay (Shein style) */}
+        {onQuickAdd && total_stock_online > 0 && (
+          <button
+            onClick={handleQuickAddClick}
+            className={`absolute bottom-2 right-2 bg-black text-white rounded-xs shadow-md hover:bg-slate-800 transition-all opacity-95 sm:opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1 z-10 active:scale-95 ${
+              isCompact ? "p-1.5 text-[9px]" : "px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider"
+            }`}
+            title="Añadir rápido al carrito"
+            aria-label="Añadir rápido"
+          >
+            <ShoppingBag className="w-3.5 h-3.5 stroke-[1.8]" />
+            {!isCompact && <span>+ AÑADIR</span>}
+          </button>
         )}
       </div>
 
@@ -239,7 +287,7 @@ export default function ProductCard({
         </Link>
 
         {/* Minimal Price Tag in USD Only */}
-        <div>
+        <div className="flex items-center justify-between">
           <span className={`font-bold text-black tracking-tight ${isCompact ? "text-xs" : "text-sm"}`}>
             ${price_usd.toFixed(2)}
           </span>

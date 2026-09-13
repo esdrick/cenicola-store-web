@@ -56,12 +56,15 @@ export async function POST(req: NextRequest) {
       console.error(`[FORGOT PASSWORD EMAIL ERROR] No se pudo entregar el correo de recuperación a ${cleanEmail}:`, emailRes.error);
     }
 
-    console.log(`[PASS_RESET_PIN] Sent PIN ${resetPin} to ${cleanEmail}`);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[PASS_RESET_PIN DEV] Sent PIN ${resetPin} to ${cleanEmail}`);
+    } else {
+      console.log(`[PASS_RESET_PIN] Sent reset PIN email to ${cleanEmail}`);
+    }
 
     return NextResponse.json({
       success: true,
-      message: "Se ha generado tu código de recuperación de 6 dígitos.",
-      // For development ease & testing, returned in response if needed
+      message: "Se ha enviado un código de recuperación de 6 dígitos a tu correo.",
       devPin: process.env.NODE_ENV !== "production" ? resetPin : undefined,
     });
   } catch (err) {
