@@ -1,6 +1,8 @@
 // Módulo de envío de correos electrónicos para Q´ FRANELAS (Tienda Web E-Commerce)
 // Soporta Resend API y fallback SMTP/Nodemailer con diseño minimalista tipo Zara / Lefties.
 
+import { isDivisasPaymentMethod } from "@/lib/whatsapp";
+
 type EmailPayload = {
   to: string;
   subject: string;
@@ -154,7 +156,7 @@ export async function sendOrderCreatedEmail({
                 <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #000000; font-family: monospace;">$${totalUsd.toFixed(2)} USD</td>
               </tr>
               ${
-                totalVes
+                totalVes && !isDivisasPaymentMethod(paymentMethod)
                   ? `
               <tr>
                 <td style="padding: 4px 0; color: #666666;">Total VES (BCV):</td>

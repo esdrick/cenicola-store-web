@@ -68,7 +68,6 @@ export default function QuickAddModal({
   onOpenCart,
   onGoToCheckout,
   cartTotalCount = 0,
-  bcvRate = 1,
 }: QuickAddModalProps) {
   const [selectedVariant, setSelectedVariant] = useState<QuickAddProductVariant | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
@@ -86,7 +85,6 @@ export default function QuickAddModal({
 
   if (!isOpen || !product) return null;
 
-  const effectiveBcvRate = product.bcv_rate || bcvRate || 1;
   const mainPhoto = product.photos && product.photos[0] ? product.photos[0] : "";
   const colorKey = (product.color || "").toLowerCase().trim();
   const hexBg = COLOR_HEX_MAP[colorKey] || (colorKey ? colorKey : "#000000");

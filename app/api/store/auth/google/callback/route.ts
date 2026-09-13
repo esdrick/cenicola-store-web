@@ -12,7 +12,7 @@ function getSecret() {
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
+    const searchParams = req.nextUrl.searchParams;
     const code = searchParams.get("code");
     const error = searchParams.get("error");
 
@@ -68,49 +68,45 @@ export async function GET(req: NextRequest) {
     const givenName = googleUser.given_name || googleUser.name || "Cliente";
     const familyName = googleUser.family_name || "";
 
-    // 3. Find or Create Customer in PostgreSQL
-    let customer = await prisma.customer.findFirst({
+    // 3. Find or Create CustomerAccount in PostgreSQL
+    let customerAccount = await prisma.customerAccount.findUnique({
       where: { email: cleanEmail },
     });
 
-    if (customer) {
+    if (customerAccount) {
       // Ensure email_verified is true
-      if (!customer.email_verified) {
-        customer = await prisma.customer.update({
-          where: { id: customer.id },
+      if (!customerAccount.email_verified) {
+        customerAccount = await prisma.customerAccount.update({
+          where: { id: customerAccount.id },
           data: { email_verified: true },
         });
       }
     } else {
-      // Create new customer
-      const tempDocNum = `TEMP-${Date.now().toString().slice(-6)}`;
-      customer = await prisma.customer.create({
+      // Create new customer account
+      customerAccount = await prisma.customerAccount.create({
         data: {
           email: cleanEmail,
           name: givenName,
           lastname: familyName,
-          doc_type: "V",
-          doc_number: tempDocNum,
           email_verified: true,
           is_active: true,
         },
       });
     }
 
-    if (!customer.is_active) {
+    if (!customerAccount.is_active) {
       return NextResponse.redirect(`${baseUrl}/cuenta?error=account_disabled`);
     }
 
     // 4. Create Customer Session JWT
     const sessionPayload = {
-      id: customer.id,
-      name: customer.name,
-      lastname: customer.lastname,
-      email: customer.email!,
-      doc_type: customer.doc_type,
-      doc_number: customer.doc_number,
-      phone: customer.phone,
-      address: customer.address,
+      id: customerAccount.id,
+      name: customerAccount.name,
+      lastname: customerAccount.lastname,
+      email: customerAccount.email,
+      phone: customerAccount.phone,
+      doc_type: customerAccount.doc_type || "V",
+      doc_number: customerAccount.doc_number || "",
     };
 
     const token = await new SignJWT(sessionPayload as unknown as Record<string, unknown>)

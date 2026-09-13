@@ -159,6 +159,16 @@ export function decodeOrderForVendedora(encodedData: string): WhatsAppOrderPaylo
 export function isDivisasPaymentMethod(paymentMethod?: string): boolean {
   if (!paymentMethod) return false;
   const clean = paymentMethod.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (
+    clean.includes("efectivo bs") ||
+    clean.includes("efectivo_bs") ||
+    clean.includes("pago movil") ||
+    clean.includes("pago_movil") ||
+    clean.includes("transferencia") ||
+    clean.includes("bolivar")
+  ) {
+    return false;
+  }
   return [
     "zelle",
     "usdt",

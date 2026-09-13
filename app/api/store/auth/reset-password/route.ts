@@ -20,26 +20,26 @@ export async function POST(req: NextRequest) {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPin = pinCode.trim();
 
-    const customer = await prisma.customer.findFirst({
+    const customerAccount = await prisma.customerAccount.findUnique({
       where: { email: cleanEmail },
     });
 
-    if (!customer || !customer.reset_token) {
+    if (!customerAccount || !customerAccount.reset_token) {
       return NextResponse.json({ error: "Código PIN no válido o no solicitado." }, { status: 400 });
     }
 
-    if (customer.reset_token !== cleanPin) {
+    if (customerAccount.reset_token !== cleanPin) {
       return NextResponse.json({ error: "El código PIN ingresado es incorrecto." }, { status: 400 });
     }
 
-    if (!customer.reset_token_expiry || customer.reset_token_expiry < new Date()) {
+    if (!customerAccount.reset_token_expiry || customerAccount.reset_token_expiry < new Date()) {
       return NextResponse.json({ error: "El código PIN ha expirado. Solicita uno nuevo." }, { status: 400 });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    await prisma.customer.update({
-      where: { id: customer.id },
+    await prisma.customerAccount.update({
+      where: { id: customerAccount.id },
       data: {
         password_hash: hashedPassword,
         reset_token: null,
@@ -56,3 +56,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Error al restablecer la contraseña." }, { status: 500 });
   }
 }
+

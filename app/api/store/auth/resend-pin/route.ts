@@ -15,30 +15,30 @@ export async function POST(req: NextRequest) {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    const customer = await prisma.customer.findFirst({
+    const customerAccount = await prisma.customerAccount.findUnique({
       where: { email: cleanEmail },
     });
 
-    if (!customer) {
+    if (!customerAccount) {
       return NextResponse.json({ error: "No se encontró ninguna cuenta con ese correo electrónico" }, { status: 404 });
     }
 
-    if (customer.email_verified) {
+    if (customerAccount.email_verified) {
       return NextResponse.json({ error: "Esta cuenta ya se encuentra verificada. Puedes iniciar sesión." }, { status: 400 });
     }
 
     const pinCode = Math.floor(100000 + Math.random() * 900000).toString();
     const verificationExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 min
 
-    await prisma.customer.update({
-      where: { id: customer.id },
+    await prisma.customerAccount.update({
+      where: { id: customerAccount.id },
       data: {
         verification_code: pinCode,
         verification_expiry: verificationExpiry,
       },
     });
 
-    const emailRes = await sendVerificationPINCodeEmail(customer.name, cleanEmail, pinCode).catch((err) => ({
+    const emailRes = await sendVerificationPINCodeEmail(customerAccount.name, cleanEmail, pinCode).catch((err) => ({
       success: false,
       error: err instanceof Error ? err.message : String(err),
     }));
@@ -56,3 +56,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Error al reenviar el código PIN" }, { status: 500 });
   }
 }
+

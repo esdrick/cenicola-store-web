@@ -3,6 +3,7 @@
 import React from "react";
 import SafeImage from "@/components/ui/SafeImage";
 import { Check, Truck, CreditCard, ArrowRight } from "lucide-react";
+import { isDivisasPaymentMethod } from "@/lib/whatsapp";
 
 export interface OrderSuccessData {
   orderNumber: string;
@@ -179,7 +180,7 @@ export default function OrderSuccessView({
           <p className="text-[10px] text-neutral-400 uppercase tracking-widest font-semibold">Total de la Orden</p>
           <p className="text-xl sm:text-2xl font-mono font-bold text-black">${totalUsd.toFixed(2)} USD</p>
         </div>
-        {totalVes && totalVes > 0 ? (
+        {totalVes && totalVes > 0 && !isDivisasPaymentMethod(paymentMethod) ? (
           <div className="text-right border-l border-neutral-200 pl-6">
             <p className="text-[10px] text-neutral-400 uppercase tracking-widest font-semibold">Equivalente BCV</p>
             <p className="text-sm sm:text-base font-mono font-bold text-neutral-700">Bs. {totalVes.toFixed(2)}</p>

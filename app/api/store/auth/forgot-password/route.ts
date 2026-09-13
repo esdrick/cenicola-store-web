@@ -15,18 +15,18 @@ export async function POST(req: NextRequest) {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    const customer = await prisma.customer.findFirst({
+    const customerAccount = await prisma.customerAccount.findUnique({
       where: { email: cleanEmail },
     });
 
-    if (!customer) {
+    if (!customerAccount) {
       return NextResponse.json(
         { error: "No encontramos ninguna cuenta registrada con este correo. Por favor regístrate primero." },
         { status: 404 }
       );
     }
 
-    if (!customer.is_active) {
+    if (!customerAccount.is_active) {
       return NextResponse.json({ error: "Cuenta desactivada. Contacta a soporte." }, { status: 403 });
     }
 
@@ -34,8 +34,8 @@ export async function POST(req: NextRequest) {
     const resetPin = Math.floor(100000 + Math.random() * 900000).toString();
     const expiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes validity
 
-    await prisma.customer.update({
-      where: { id: customer.id },
+    await prisma.customerAccount.update({
+      where: { id: customerAccount.id },
       data: {
         reset_token: resetPin,
         reset_token_expiry: expiry,
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     // Enviar correo de recuperación
     const emailRes = await sendPasswordResetEmail({
       to: cleanEmail,
-      customerName: customer.name,
+      customerName: customerAccount.name,
       resetPin,
     }).catch((err) => ({
       success: false,
@@ -72,3 +72,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Error al procesar la solicitud de recuperación." }, { status: 500 });
   }
 }
+

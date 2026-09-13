@@ -12,7 +12,7 @@ import WishlistDrawer from "@/components/store/WishlistDrawer";
 import SearchDrawer from "@/components/store/SearchDrawer";
 import QuickAddModal, { type QuickAddProduct, type QuickAddProductVariant } from "@/components/store/QuickAddModal";
 import { useWishlist } from "@/components/store/WishlistContext";
-import { ArrowLeft, Check, AlertCircle, Bookmark, ShoppingBag } from "lucide-react";
+import { ArrowLeft, AlertCircle, Bookmark, ShoppingBag } from "lucide-react";
 
 type VariantType = {
   id: string;

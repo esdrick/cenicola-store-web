@@ -23,39 +23,39 @@ export async function POST(req: NextRequest) {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    const customer = await prisma.customer.findFirst({
+    const customerAccount = await prisma.customerAccount.findUnique({
       where: { email: cleanEmail },
     });
 
-    if (!customer || !customer.password_hash) {
+    if (!customerAccount || !customerAccount.password_hash) {
       return NextResponse.json({ error: "Credenciales inválidas. Verifica tu correo y contraseña." }, { status: 401 });
     }
 
-    if (!customer.is_active) {
+    if (!customerAccount.is_active) {
       return NextResponse.json({ error: "Cuenta desactivada. Contacta a soporte." }, { status: 403 });
     }
 
-    const validPassword = await bcrypt.compare(password, customer.password_hash);
+    const validPassword = await bcrypt.compare(password, customerAccount.password_hash);
     if (!validPassword) {
       return NextResponse.json({ error: "Credenciales inválidas. Verifica tu correo y contraseña." }, { status: 401 });
     }
 
-    if (!customer.email_verified) {
-      const pinCode = customer.verification_code && customer.verification_expiry && customer.verification_expiry > new Date()
-        ? customer.verification_code
+    if (!customerAccount.email_verified) {
+      const pinCode = customerAccount.verification_code && customerAccount.verification_expiry && customerAccount.verification_expiry > new Date()
+        ? customerAccount.verification_code
         : Math.floor(100000 + Math.random() * 900000).toString();
 
       const verificationExpiry = new Date(Date.now() + 15 * 60 * 1000);
 
-      await prisma.customer.update({
-        where: { id: customer.id },
+      await prisma.customerAccount.update({
+        where: { id: customerAccount.id },
         data: {
           verification_code: pinCode,
           verification_expiry: verificationExpiry,
         },
       });
 
-      const emailRes = await sendVerificationPINCodeEmail(customer.name, cleanEmail, pinCode).catch((err) => ({
+      const emailRes = await sendVerificationPINCodeEmail(customerAccount.name, cleanEmail, pinCode).catch((err) => ({
         success: false,
         error: err instanceof Error ? err.message : String(err),
       }));
@@ -76,14 +76,13 @@ export async function POST(req: NextRequest) {
     }
 
     const sessionPayload = {
-      id: customer.id,
-      name: customer.name,
-      lastname: customer.lastname,
-      email: customer.email!,
-      doc_type: customer.doc_type,
-      doc_number: customer.doc_number,
-      phone: customer.phone,
-      address: customer.address,
+      id: customerAccount.id,
+      name: customerAccount.name,
+      lastname: customerAccount.lastname,
+      email: customerAccount.email,
+      phone: customerAccount.phone,
+      doc_type: customerAccount.doc_type || "V",
+      doc_number: customerAccount.doc_number || "",
     };
 
     const token = await new SignJWT(sessionPayload as unknown as Record<string, unknown>)
@@ -111,3 +110,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Error al iniciar sesión" }, { status: 500 });
   }
 }
+

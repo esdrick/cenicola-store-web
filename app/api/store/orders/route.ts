@@ -26,17 +26,17 @@ export async function GET() {
       return NextResponse.json({ error: "Sesión inválida", orders: [] }, { status: 401 });
     }
 
-    const customerId = String(payload.id);
+    const customerAccountId = String(payload.id);
     const customerEmail = String(payload.email || "").trim().toLowerCase();
 
-    // Find orders created strictly for this authenticated customer (by customer_id, customer email, or notes)
+    // Find orders created for this authenticated customer account (by customer_account_id, customer_account email, or notes)
     const rawOrders = await prisma.order.findMany({
       where: {
         OR: [
-          { customer_id: customerId },
+          { customer_account_id: customerAccountId },
           ...(customerEmail
             ? [
-                { customer: { email: { equals: customerEmail, mode: "insensitive" as const } } },
+                { customer_account: { email: { equals: customerEmail, mode: "insensitive" as const } } },
                 { notes: { contains: customerEmail, mode: "insensitive" as const } },
               ]
             : []),

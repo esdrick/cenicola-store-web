@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Loader2,
 } from "lucide-react";
+import { isDivisasPaymentMethod } from "@/lib/whatsapp";
 
 export interface OrderSuccessData {
   orderNumber: string;
@@ -213,7 +214,7 @@ export default function OrderSuccessModal({
               <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Total de la Orden</p>
               <p className="text-xl font-mono font-bold text-black">${totalUsd.toFixed(2)} USD</p>
             </div>
-            {totalVes && totalVes > 0 ? (
+            {totalVes && totalVes > 0 && !isDivisasPaymentMethod(paymentMethod) ? (
               <div className="text-right border-l border-slate-200 pl-4">
                 <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Equivalente BCV</p>
                 <p className="text-sm font-mono font-bold text-slate-700">Bs. {totalVes.toFixed(2)}</p>

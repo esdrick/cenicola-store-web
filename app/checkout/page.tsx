@@ -12,6 +12,7 @@ import CartDrawer, { type CartItemType } from "@/components/store/CartDrawer";
 import OrderSuccessView, { type OrderSuccessData } from "@/components/store/OrderSuccessView";
 import {
   ArrowLeft,
+  ShoppingBag,
   Lock,
   KeyRound,
   CheckCircle2,
@@ -568,7 +569,7 @@ export default function CheckoutPage() {
         shippingCompany: finalShippingAgency,
         address: effectiveAddress,
         totalUsd: totalUsd,
-        totalVes: totalVes,
+        totalVes: isDivisasPayment ? undefined : totalVes,
         bcvRate: bcvRate,
         items: cartWithTiers.map((i) => ({
           name: i.name,
@@ -655,6 +656,22 @@ export default function CheckoutPage() {
             }
             onContinueShopping={() => router.push("/catalogo")}
           />
+        </main>
+      ) : cart.length === 0 ? (
+        <main className="flex-1 flex flex-col items-center justify-center min-h-[50vh] text-center space-y-3 py-16 px-4">
+          <ShoppingBag className="w-8 h-8 text-slate-300 stroke-[1.2]" />
+          <h1 className="text-xs font-normal uppercase tracking-widest text-black">
+            TU CARRITO ESTÁ VACÍO
+          </h1>
+          <p className="text-[11px] text-slate-400 max-w-xs font-normal leading-relaxed">
+            Explora las prendas de la colección y añádelas al carrito.
+          </p>
+          <Link
+            href="/catalogo"
+            className="mt-3 inline-block bg-black text-white px-6 py-3 text-[11px] font-normal uppercase tracking-widest hover:bg-slate-800 transition-colors"
+          >
+            VER COLECCIÓN
+          </Link>
         </main>
       ) : (
         <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-6">

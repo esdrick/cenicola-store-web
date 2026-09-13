@@ -3,23 +3,25 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { sendVerificationPINCodeEmail } from "@/lib/email";
 import { validateEmailDomain } from "@/lib/email-validator";
-import type { DocumentType } from "@/app/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, lastname, email, password, doc_type, doc_number, phone, address } = body;
+    const { name, lastname, email, password, phone, doc_type, doc_number } = body;
 
-    if (!name || !lastname || !email || !password || !doc_type || !doc_number) {
+    if (!name || !lastname || !email || !password) {
       return NextResponse.json(
-        { error: "Todos los campos obligatorios deben ser completados (Nombre, Apellido, Email, Clave, Cédula/RIF)" },
+        { error: "Todos los campos obligatorios deben ser completados (Nombre, Apellido, Email, Clave)" },
         { status: 400 }
       );
     }
 
     const cleanEmail = email.trim().toLowerCase();
+    const VALID_DOC_TYPES = ["V", "P", "J", "E"] as const;
+    const cleanDocType = doc_type && VALID_DOC_TYPES.includes(doc_type) ? (doc_type as "V" | "P" | "J" | "E") : "V";
+    const cleanDocNumber = doc_number ? String(doc_number).trim().toUpperCase() : null;
 
     // 1. Validar sintaxis y existencia real del dominio de correo electrónico
     const emailValidation = await validateEmailDomain(cleanEmail);
@@ -43,16 +45,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cleanDocNumber = doc_number.trim().toUpperCase();
-
-    // Accounts are strictly unique by EMAIL.
-    const existingEmail = await prisma.customer.findFirst({
+    // Accounts are strictly unique by EMAIL on CustomerAccount
+    const existingAccount = await prisma.customerAccount.findUnique({
       where: { email: cleanEmail },
     });
 
     // Only block if account is already verified AND has an established password.
-    // If account was created via Google OAuth (password_hash === null), permit setting password & profile.
-    if (existingEmail && existingEmail.email_verified && existingEmail.password_hash) {
+    if (existingAccount && existingAccount.email_verified && existingAccount.password_hash) {
       return NextResponse.json(
         { error: "Este correo electrónico ya se encuentra registrado. Inicia sesión." },
         { status: 400 }
@@ -63,27 +62,22 @@ export async function POST(req: NextRequest) {
     const verificationExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     const password_hash = await bcrypt.hash(cleanPassword, 10);
 
-    const cleanDocType = String(doc_type || "V").trim().toUpperCase();
-    const VALID_DOC_TYPES: DocumentType[] = ["V", "P", "J", "E"];
-    const finalDocType = VALID_DOC_TYPES.includes(cleanDocType as DocumentType) ? (cleanDocType as DocumentType) : "V";
-
-    let customer;
-    if (existingEmail) {
+    let customerAccount;
+    if (existingAccount) {
       // If customer came from Google OAuth, keep email_verified true when setting password
-      const isGoogleUser = Boolean(existingEmail.email_verified && !existingEmail.password_hash);
-      customer = await prisma.customer.update({
-        where: { id: existingEmail.id },
+      const isGoogleUser = Boolean(existingAccount.email_verified && !existingAccount.password_hash);
+      customerAccount = await prisma.customerAccount.update({
+        where: { id: existingAccount.id },
         data: {
           name: name.trim(),
           lastname: lastname.trim(),
-          doc_type: finalDocType,
-          doc_number: cleanDocNumber,
+          doc_type: cleanDocType,
+          doc_number: cleanDocNumber || existingAccount.doc_number,
           password_hash,
           verification_code: isGoogleUser ? null : pinCode,
           verification_expiry: isGoogleUser ? null : verificationExpiry,
           email_verified: isGoogleUser ? true : false,
-          phone: phone?.trim() || existingEmail.phone,
-          address: address?.trim() || existingEmail.address,
+          phone: phone?.trim() || existingAccount.phone,
         },
       });
 
@@ -97,19 +91,18 @@ export async function POST(req: NextRequest) {
         });
       }
     } else {
-      customer = await prisma.customer.create({
+      customerAccount = await prisma.customerAccount.create({
         data: {
           name: name.trim(),
           lastname: lastname.trim(),
+          doc_type: cleanDocType,
+          doc_number: cleanDocNumber,
           email: cleanEmail,
           password_hash,
-          doc_type: finalDocType,
-          doc_number: cleanDocNumber,
           verification_code: pinCode,
           verification_expiry: verificationExpiry,
           email_verified: false,
           phone: phone?.trim() || null,
-          address: address?.trim() || null,
         },
       });
     }
@@ -123,8 +116,8 @@ export async function POST(req: NextRequest) {
       console.log("==================================================\n");
     }
 
-    // Send email PIN code (await execution so Serverless function on Vercel does not terminate early)
-    const emailRes = await sendVerificationPINCodeEmail(customer.name, cleanEmail, pinCode).catch((err) => ({
+    // Send email PIN code
+    const emailRes = await sendVerificationPINCodeEmail(customerAccount.name, cleanEmail, pinCode).catch((err) => ({
       success: false,
       error: err instanceof Error ? err.message : String(err),
     }));
@@ -144,20 +137,12 @@ export async function POST(req: NextRequest) {
     console.error("POST /api/store/auth/register error:", err);
     const errorObj = err as { code?: string; meta?: { target?: string | string[] } };
     if (errorObj?.code === "P2002") {
-      const targets = Array.isArray(errorObj?.meta?.target)
-        ? errorObj.meta.target.join(" ")
-        : String(errorObj?.meta?.target || "");
-      if (targets.includes("email")) {
-        return NextResponse.json(
-          { error: "Este correo electrónico ya se encuentra registrado. Inicia sesión." },
-          { status: 400 }
-        );
-      }
       return NextResponse.json(
-        { error: "La cédula o RIF ingresado ya se encuentra registrado con otra cuenta. Por favor verifica tus datos." },
+        { error: "Este correo electrónico ya se encuentra registrado. Inicia sesión." },
         { status: 400 }
       );
     }
     return NextResponse.json({ error: "Error al registrar la cuenta de cliente" }, { status: 500 });
   }
 }
+

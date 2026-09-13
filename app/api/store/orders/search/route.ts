@@ -19,16 +19,24 @@ export async function POST(req: NextRequest) {
     const cleanEmail = email.trim().toLowerCase();
     const cleanOrderNumber = order_number.trim().toUpperCase();
 
-    // Match order by order_number AND customer email for maximum privacy
+    // Match order by order_number AND customer email (via customer_account, customer, or notes)
     const orders = await prisma.order.findMany({
       where: {
-        OR: [
-          { order_number: cleanOrderNumber },
-          { order_number: { endsWith: cleanOrderNumber } },
+        AND: [
+          {
+            OR: [
+              { order_number: cleanOrderNumber },
+              { order_number: { endsWith: cleanOrderNumber } },
+            ],
+          },
+          {
+            OR: [
+              { customer_account: { email: { equals: cleanEmail, mode: "insensitive" as const } } },
+              { customer: { email: { equals: cleanEmail, mode: "insensitive" as const } } },
+              { notes: { contains: cleanEmail, mode: "insensitive" as const } },
+            ],
+          },
         ],
-        customer: {
-          email: { equals: cleanEmail, mode: "insensitive" },
-        },
       },
       include: {
         items: {

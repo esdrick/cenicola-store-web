@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { jwtVerify } from "jose";
 import { prisma } from "@/lib/prisma";
 import { generateOrderNumber, normalizeReference } from "@/lib/order-utils";
 import { getTasa } from "@/lib/tasa-cambio";
 import { sendOrderCreatedEmail } from "@/lib/email";
 import { isDivisasPaymentMethod } from "@/lib/whatsapp";
 import { checkRateLimit } from "@/lib/rate-limiter";
-import type { PaymentType, DocumentType } from "@/app/generated/prisma/client";
+import type { PaymentType } from "@/app/generated/prisma/client";
+
+function getSecret() {
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) return null;
+  return new TextEncoder().encode(secret);
+}
 
 function normalizePaymentType(rawType: string): PaymentType {
   const str = String(rawType || "").toLowerCase().trim();
@@ -38,6 +46,22 @@ export async function POST(request: NextRequest) {
   try {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "127.0.0.1";
     
+    // Check authenticated customer session cookie if present
+    let authenticatedAccountId: string | null = null;
+    try {
+      const cookieStore = await cookies();
+      const token = cookieStore.get("cenicola_customer_session")?.value;
+      const secret = getSecret();
+      if (token && secret) {
+        const { payload } = await jwtVerify(token, secret);
+        if (payload?.id) {
+          authenticatedAccountId = String(payload.id);
+        }
+      }
+    } catch {
+      // Guest checkout session
+    }
+
     // 1. IP Rate Limiter Check (Max 5 checkout requests per minute)
     const rateCheck = checkRateLimit(ip, 5, 60 * 1000);
     if (!rateCheck.allowed) {
@@ -195,12 +219,12 @@ export async function POST(request: NextRequest) {
         });
 
         if (!variant || !variant.is_active) {
-          throw new Error(`La prenda seleccionada ya no está disponible`);
+          throw new Error("Algunos productos de tu carrito ya no están disponibles.");
         }
 
         const qty = Number(item.quantity) || 1;
         if (variant.stock_online < qty) {
-          throw new Error(`Stock insuficiente para ${variant.product.name} (Talla ${variant.size}). Disponibles: ${variant.stock_online}`);
+          throw new Error("Algunos productos de tu carrito se han agotado o no cuentan con suficiente stock disponible.");
         }
 
         const baseBcvPrice = Number(variant.price_bcv || 0);
@@ -246,59 +270,46 @@ export async function POST(request: NextRequest) {
 
       totalUsd = parseFloat(totalUsd.toFixed(2));
 
-      // 2. Smart Customer Resolution (Email-First)
-      const cleanEmail = customer_email.trim().toLowerCase();
-      const cleanDocNumber = doc_number.trim().toUpperCase();
+      // 2. Smart CustomerAccount Resolution & Update
+      let customerAccountId: string | null = authenticatedAccountId;
+      let existingAccount = customerAccountId
+        ? await tx.customerAccount.findUnique({ where: { id: customerAccountId } })
+        : null;
 
-      let customer = await tx.customer.findFirst({
-        where: { email: cleanEmail },
-      });
-
-      if (customer) {
-        // Update existing customer profile with real doc_number, phone, and address
-        customer = await tx.customer.update({
-          where: { id: customer.id },
-          data: {
-            doc_type: doc_type as DocumentType,
-            doc_number: cleanDocNumber,
-            name: customer_name.trim(),
-            lastname: customer_lastname.trim(),
-            phone: customer_phone.trim(),
-            address: address.trim(),
-          },
+      if (!existingAccount && cleanEmail) {
+        existingAccount = await tx.customerAccount.findUnique({
+          where: { email: cleanEmail },
         });
-      } else {
-        // Create new customer for this email
-        customer = await tx.customer.create({
+        if (existingAccount) {
+          customerAccountId = existingAccount.id;
+        }
+      }
+
+      if (existingAccount) {
+        await tx.customerAccount.update({
+          where: { id: existingAccount.id },
           data: {
-            email: cleanEmail,
-            doc_type: doc_type as DocumentType,
-            doc_number: cleanDocNumber,
-            name: customer_name.trim(),
-            lastname: customer_lastname.trim(),
-            phone: customer_phone.trim(),
-            address: address.trim(),
-            email_verified: true,
+            doc_type: (doc_type as "V" | "P" | "J" | "E") || existingAccount.doc_type || "V",
+            doc_number: cleanDocNumber || existingAccount.doc_number,
+            phone: cleanPhone || existingAccount.phone,
           },
         });
       }
 
-      const customerId = customer.id;
-
-      // 3. Create System User placeholder for online web order if needed (or admin system id)
+      // 3. System User placeholder for online web order
       const systemAdmin = await tx.user.findFirst({ where: { role: "admin" } });
-      const createdById = systemAdmin?.id ?? customer.id;
+      const createdById = systemAdmin?.id ?? null;
 
       const fullNotes = `[Correo Web: ${cleanEmail}] ${cleanNotes}`.trim();
 
-      // 4. Create Order
+      // 4. Create Order linked to CustomerAccount
       const orderNumber = await generateOrderNumber(tx, "WEB");
       const order = await tx.order.create({
         data: {
           order_number: orderNumber,
           channel: "online",
           status: "pendiente_pago",
-          customer_id: customerId,
+          customer_account_id: customerAccountId,
           customer_name: customer_name.trim(),
           customer_lastname: customer_lastname.trim(),
           customer_id_doc,

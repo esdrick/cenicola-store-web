@@ -23,24 +23,24 @@ export async function POST(req: NextRequest) {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPin = String(pin_code).trim();
 
-    const customer = await prisma.customer.findFirst({
+    const customerAccount = await prisma.customerAccount.findUnique({
       where: { email: cleanEmail },
     });
 
-    if (!customer) {
+    if (!customerAccount) {
       return NextResponse.json({ error: "No encontramos una cuenta con este correo" }, { status: 404 });
     }
 
-    if (!customer.verification_code || customer.verification_code !== cleanPin) {
+    if (!customerAccount.verification_code || customerAccount.verification_code !== cleanPin) {
       return NextResponse.json({ error: "El código PIN ingresado es incorrecto" }, { status: 400 });
     }
 
-    if (customer.verification_expiry && customer.verification_expiry < new Date()) {
+    if (customerAccount.verification_expiry && customerAccount.verification_expiry < new Date()) {
       return NextResponse.json({ error: "El código PIN ha expirado. Solicita un nuevo código." }, { status: 400 });
     }
 
-    const updatedCustomer = await prisma.customer.update({
-      where: { id: customer.id },
+    const updatedAccount = await prisma.customerAccount.update({
+      where: { id: customerAccount.id },
       data: {
         email_verified: true,
         verification_code: null,
@@ -49,14 +49,13 @@ export async function POST(req: NextRequest) {
     });
 
     const sessionPayload = {
-      id: updatedCustomer.id,
-      name: updatedCustomer.name,
-      lastname: updatedCustomer.lastname,
-      email: updatedCustomer.email!,
-      doc_type: updatedCustomer.doc_type,
-      doc_number: updatedCustomer.doc_number,
-      phone: updatedCustomer.phone,
-      address: updatedCustomer.address,
+      id: updatedAccount.id,
+      name: updatedAccount.name,
+      lastname: updatedAccount.lastname,
+      email: updatedAccount.email,
+      phone: updatedAccount.phone,
+      doc_type: updatedAccount.doc_type || "V",
+      doc_number: updatedAccount.doc_number || "",
     };
 
     const token = await new SignJWT(sessionPayload as unknown as Record<string, unknown>)
@@ -85,3 +84,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Error al verificar código PIN" }, { status: 500 });
   }
 }
+
