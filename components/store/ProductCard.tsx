@@ -14,6 +14,8 @@ type ProductCardProps = {
   price_usd: number;
   price_ves: number;
   total_stock_online: number;
+  price_divisas_usd?: number;
+  price_mayor_usd?: number;
   variants?: Array<{
     id: string;
     size: string;
@@ -48,6 +50,11 @@ const COLOR_HEX_MAP: Record<string, string> = {
   naranja: "#F97316",
 };
 
+const formatPrice = (val: number) => {
+  if (val === undefined || val === null || isNaN(val)) return "0.00";
+  return val.toFixed(2);
+};
+
 export default function ProductCard(props: ProductCardProps) {
   const {
     id,
@@ -62,6 +69,18 @@ export default function ProductCard(props: ProductCardProps) {
     viewMode = "large",
     onQuickAdd,
   } = props;
+
+  const mayorPriceUsd = (() => {
+    if (props.price_mayor_usd && props.price_mayor_usd > 0) return props.price_mayor_usd;
+    if (variants && variants.length > 0) {
+      const valid = variants.map((v) => v.price_mayor_usd || 0).filter((p) => p > 0);
+      if (valid.length > 0) return Math.min(...valid);
+    }
+    if (price_usd && price_usd > 0) {
+      return Number((price_usd * 0.7).toFixed(2));
+    }
+    return undefined;
+  })();
 
   const mainPhoto = photos && photos[0] ? photos[0] : "";
   const hoverPhoto = photos && photos[1] ? photos[1] : mainPhoto;
@@ -89,9 +108,9 @@ export default function ProductCard(props: ProductCardProps) {
   // 1. REAL COMPACT LIST VIEW MODE (Small thumbnail, clean row item)
   if (viewMode === "list") {
     return (
-      <div className="group bg-white py-2.5 px-3 sm:px-4 border-b border-slate-100 hover:bg-slate-50/80 transition-colors text-black flex items-center justify-between gap-3 sm:gap-5">
+      <div className="group bg-white py-2.5 px-3 sm:px-4 border-b border-slate-100 hover:bg-slate-50/80 transition-colors text-black flex items-center justify-between gap-2.5 sm:gap-5">
         {/* Left: Small Thumbnail Image & Details */}
-        <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+        <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
           {/* Small Compact Image (w-12 sm:w-16, 3:4 aspect) */}
           <Link
             href={`/producto/${id}`}
@@ -108,7 +127,7 @@ export default function ProductCard(props: ProductCardProps) {
 
           {/* Title, Color Swatch & Sizes */}
           <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
               {color && (
                 <span
                   className="w-2.5 h-2.5 border border-slate-300 rounded-xs inline-block shrink-0"
@@ -118,7 +137,7 @@ export default function ProductCard(props: ProductCardProps) {
               )}
               <Link
                 href={`/producto/${id}`}
-                className="font-semibold text-black text-xs sm:text-sm uppercase tracking-wider hover:opacity-60 transition-opacity line-clamp-1"
+                className="font-semibold text-black text-xs sm:text-sm uppercase tracking-wider hover:opacity-60 transition-opacity truncate block min-w-0"
               >
                 {name}
               </Link>
@@ -126,7 +145,7 @@ export default function ProductCard(props: ProductCardProps) {
 
             {/* Sizes Badges */}
             {variants.length > 0 && (
-              <div className="flex items-center gap-1 flex-wrap">
+              <div className="flex items-center gap-1 flex-wrap pt-0.5">
                 {variants.map((v) => (
                   <span
                     key={v.id}
@@ -145,10 +164,28 @@ export default function ProductCard(props: ProductCardProps) {
         </div>
 
         {/* Right: Price & Wishlist / Quick Add Button */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <span className="font-bold text-black text-xs sm:text-sm tracking-tight">
-            ${price_usd.toFixed(2)}
-          </span>
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          <div className="flex flex-col items-end text-right">
+            <div className="flex items-baseline gap-1">
+              <span className="font-bold text-black text-xs sm:text-sm tracking-tight">
+                ${formatPrice(price_usd)}
+              </span>
+              <span className="text-[9px] sm:text-[10px] font-semibold text-slate-500 uppercase">
+                BCV
+              </span>
+            </div>
+
+            {mayorPriceUsd && mayorPriceUsd < price_usd && (
+              <div className="mt-0.5 flex flex-col items-end">
+                <span className="inline-block text-[8px] sm:text-[9.5px] uppercase tracking-wider text-black bg-slate-100 px-1.5 py-0.5 border border-slate-200 font-normal whitespace-nowrap">
+                  ${formatPrice(mayorPriceUsd)} BCV MAYOR
+                </span>
+                <span className="text-[7.5px] sm:text-[8.5px] text-slate-400 font-normal uppercase tracking-wider whitespace-nowrap mt-0.5">
+                  +6 pcs
+                </span>
+              </div>
+            )}
+          </div>
 
           <button
             onClick={handleWishlistClick}
@@ -170,7 +207,7 @@ export default function ProductCard(props: ProductCardProps) {
               title="Añadir rápido al carrito"
             >
               <Plus className="w-3 h-3" />
-              <span>Añadir</span>
+              <span className="hidden sm:inline">Añadir</span>
             </button>
           )}
 
@@ -286,11 +323,27 @@ export default function ProductCard(props: ProductCardProps) {
           {name}
         </Link>
 
-        {/* Minimal Price Tag in USD Only */}
-        <div className="flex items-center justify-between">
-          <span className={`font-bold text-black tracking-tight ${isCompact ? "text-xs" : "text-sm"}`}>
-            ${price_usd.toFixed(2)}
-          </span>
+        {/* Option 2: Soft Gray Micro-Pill with Thin Font (Mango / Lefties Premium Style) */}
+        <div className="pt-0.5 space-y-1">
+          <div className="flex items-baseline gap-1">
+            <span className={`font-bold text-black tracking-tight ${isCompact ? "text-xs" : "text-sm sm:text-base"}`}>
+              ${formatPrice(price_usd)}
+            </span>
+            <span className={`font-semibold text-slate-500 uppercase ${isCompact ? "text-[9px]" : "text-[10px] sm:text-[11px]"}`}>
+              BCV
+            </span>
+          </div>
+
+          {mayorPriceUsd && mayorPriceUsd < price_usd && (
+            <div className="pt-0.5 flex items-center gap-1.5 flex-wrap">
+              <span className={`inline-block uppercase tracking-wider text-black bg-slate-100 px-1.5 sm:px-2 py-0.5 border border-slate-200 font-normal whitespace-nowrap ${isCompact ? "text-[7.5px] sm:text-[8.5px]" : "text-[8.5px] sm:text-[10px]"}`}>
+                ${formatPrice(mayorPriceUsd)} BCV MAYOR
+              </span>
+              <span className={`text-slate-400 font-normal uppercase tracking-wider whitespace-nowrap ${isCompact ? "text-[7.5px] sm:text-[8.5px]" : "text-[8.5px] sm:text-[9.5px]"}`}>
+                +6 piezas combinables
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -54,7 +54,29 @@ export async function GET(request: NextRequest) {
             { description: { contains: "caballero", mode: "insensitive" } },
           ],
         });
-      } else if (["niños", "niñas", "niño", "niña", "infantil", "ninos", "ninas"].includes(catLower)) {
+      } else if (["niño", "nino"].includes(catLower)) {
+        whereConditions.push({
+          OR: [
+            { name: { contains: "niño", mode: "insensitive" } },
+            { name: { contains: "nino", mode: "insensitive" } },
+            { type: { contains: "niño", mode: "insensitive" } },
+            { type: { contains: "nino", mode: "insensitive" } },
+            { description: { contains: "niño", mode: "insensitive" } },
+            { description: { contains: "nino", mode: "insensitive" } },
+          ],
+        });
+      } else if (["niña", "nina"].includes(catLower)) {
+        whereConditions.push({
+          OR: [
+            { name: { contains: "niña", mode: "insensitive" } },
+            { name: { contains: "nina", mode: "insensitive" } },
+            { type: { contains: "niña", mode: "insensitive" } },
+            { type: { contains: "nina", mode: "insensitive" } },
+            { description: { contains: "niña", mode: "insensitive" } },
+            { description: { contains: "nina", mode: "insensitive" } },
+          ],
+        });
+      } else if (["niños", "niñas", "infantil", "ninos", "ninas"].includes(catLower)) {
         whereConditions.push({
           OR: [
             { name: { contains: "niño", mode: "insensitive" } },
@@ -67,6 +89,7 @@ export async function GET(request: NextRequest) {
             { type: { contains: "infantil", mode: "insensitive" } },
             { description: { contains: "niño", mode: "insensitive" } },
             { description: { contains: "niña", mode: "insensitive" } },
+            { description: { contains: "infantil", mode: "insensitive" } },
           ],
         });
       } else {
@@ -126,7 +149,11 @@ export async function GET(request: NextRequest) {
           terms.push("mujer", "dama", "damas", "chica");
         } else if (["hombre", "caballeros", "caballero", "chico", "chicos"].includes(t)) {
           terms.push("hombre", "caballero", "caballeros", "chico");
-        } else if (["ninos", "ninas", "nino", "nina", "infantil"].includes(t)) {
+        } else if (t === "nino") {
+          terms.push("nino");
+        } else if (t === "nina") {
+          terms.push("nina");
+        } else if (["ninos", "ninas", "infantil"].includes(t)) {
           terms.push("nino", "nina", "infantil");
         }
       }
@@ -147,46 +174,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Fallback: If filtering produced 0 items, fetch all active items so the catalog is never completely empty
-    if (products.length === 0 && category) {
-      products = await prisma.product.findMany({
-        where: {
-          is_active: true,
-          variants: { some: { is_active: true, stock_online: { gt: 0 } } },
-        },
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          color: true,
-          description: true,
-          photos: true,
-          variants: {
-            where: { is_active: true, stock_online: { gt: 0 } },
-            select: {
-              id: true,
-              size: true,
-              sku: true,
-              price_bcv: true,
-              price_divisas: true,
-              price_bundle_bcv: true,
-              price_bundle_divisas: true,
-              price_mayor_bcv: true,
-              price_mayor_divisas: true,
-              stock_online: true,
-            },
-            orderBy: { size: "asc" },
-          },
-        },
-        orderBy: { created_at: "desc" },
-      });
-    }
-
     const data = products.map((p) => {
       const minPriceUsd = Math.min(...p.variants.map((v) => Number(v.price_bcv)));
       const minPriceDivisasUsd = Math.min(
         ...p.variants.map((v) => (Number(v.price_divisas) > 0 ? Number(v.price_divisas) : Number(v.price_bcv)))
       );
+      const mayorPrices = p.variants
+        .map((v) => Number(v.price_mayor_bcv))
+        .filter((pm) => pm > 0);
+      const minPriceMayorUsd =
+        mayorPrices.length > 0
+          ? Math.min(...mayorPrices)
+          : Number((minPriceUsd * 0.7).toFixed(2));
       const minPriceVes = minPriceUsd * bcvRate;
       const totalStockOnline = p.variants.reduce((sum, v) => sum + v.stock_online, 0);
 
@@ -199,21 +198,28 @@ export async function GET(request: NextRequest) {
         photos: p.photos,
         price_usd: minPriceUsd,
         price_divisas_usd: minPriceDivisasUsd,
+        price_mayor_usd: minPriceMayorUsd,
         price_ves: parseFloat(minPriceVes.toFixed(2)),
         total_stock_online: totalStockOnline,
-        variants: p.variants.map((v) => ({
-          id: v.id,
-          size: v.size,
-          sku: v.sku,
-          stock_online: v.stock_online,
-          price_usd: Number(v.price_bcv),
-          price_divisas_usd: Number(v.price_divisas) > 0 ? Number(v.price_divisas) : Number(v.price_bcv),
-          price_bundle_usd: Number(v.price_bundle_bcv || 0),
-          price_bundle_divisas_usd: Number(v.price_bundle_divisas || 0),
-          price_mayor_usd: Number(v.price_mayor_bcv || 0),
-          price_mayor_divisas_usd: Number(v.price_mayor_divisas || 0),
-          price_ves: parseFloat((Number(v.price_bcv) * bcvRate).toFixed(2)),
-        })),
+        variants: p.variants.map((v) => {
+          const variantMayor =
+            Number(v.price_mayor_bcv || 0) > 0
+              ? Number(v.price_mayor_bcv)
+              : Number((Number(v.price_bcv) * 0.7).toFixed(2));
+          return {
+            id: v.id,
+            size: v.size,
+            sku: v.sku,
+            stock_online: v.stock_online,
+            price_usd: Number(v.price_bcv),
+            price_divisas_usd: Number(v.price_divisas) > 0 ? Number(v.price_divisas) : Number(v.price_bcv),
+            price_bundle_usd: Number(v.price_bundle_bcv || 0),
+            price_bundle_divisas_usd: Number(v.price_bundle_divisas || 0),
+            price_mayor_usd: variantMayor,
+            price_mayor_divisas_usd: Number(v.price_mayor_divisas || 0),
+            price_ves: parseFloat((Number(v.price_bcv) * bcvRate).toFixed(2)),
+          };
+        }),
       };
     });
 

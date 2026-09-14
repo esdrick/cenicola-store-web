@@ -22,9 +22,11 @@ type ProductType = {
   description?: string | null;
   photos: string[];
   price_usd: number;
+  price_divisas_usd?: number;
+  price_mayor_usd?: number;
   price_ves: number;
   total_stock_online: number;
-  variants: Array<{ id: string; size: string; stock_online: number }>;
+  variants: Array<{ id: string; size: string; stock_online: number; price_usd?: number; price_mayor_usd?: number }>;
 };
 
 export default function StoreHomePage() {
@@ -151,7 +153,7 @@ export default function StoreHomePage() {
     saveCart(updated);
   };
 
-  const defaultCategories = ["Mujer", "Hombre", "Niños"];
+  const defaultCategories = ["Mujer", "Hombre", "Niños", "Niño", "Niña"];
   const allCategoryPills = Array.from(new Set([...defaultCategories, ...categories]));
 
   return (

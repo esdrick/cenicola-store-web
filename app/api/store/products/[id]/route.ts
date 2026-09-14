@@ -49,6 +49,13 @@ export async function GET(
     const minPriceDivisasUsd = Math.min(
       ...product.variants.map((v) => (Number(v.price_divisas) > 0 ? Number(v.price_divisas) : Number(v.price_bcv)))
     );
+    const mayorPrices = product.variants
+      .map((v) => Number(v.price_mayor_bcv))
+      .filter((pm) => pm > 0);
+    const minPriceMayorUsd =
+      mayorPrices.length > 0
+        ? Math.min(...mayorPrices)
+        : Number((minPriceUsd * 0.7).toFixed(2));
 
     const data = {
       id: product.id,
@@ -59,21 +66,28 @@ export async function GET(
       photos: Array.from(new Set(product.photos || [])),
       price_usd: minPriceUsd,
       price_divisas_usd: minPriceDivisasUsd,
+      price_mayor_usd: minPriceMayorUsd,
       price_ves: parseFloat((minPriceUsd * bcvRate).toFixed(2)),
       bcv_rate: bcvRate,
-      variants: product.variants.map((v) => ({
-        id: v.id,
-        size: v.size,
-        sku: v.sku,
-        stock_online: v.stock_online,
-        price_usd: Number(v.price_bcv),
-        price_divisas_usd: Number(v.price_divisas) > 0 ? Number(v.price_divisas) : Number(v.price_bcv),
-        price_bundle_usd: Number(v.price_bundle_bcv || 0),
-        price_bundle_divisas_usd: Number(v.price_bundle_divisas || 0),
-        price_mayor_usd: Number(v.price_mayor_bcv || 0),
-        price_mayor_divisas_usd: Number(v.price_mayor_divisas || 0),
-        price_ves: parseFloat((Number(v.price_bcv) * bcvRate).toFixed(2)),
-      })),
+      variants: product.variants.map((v) => {
+        const variantMayor =
+          Number(v.price_mayor_bcv || 0) > 0
+            ? Number(v.price_mayor_bcv)
+            : Number((Number(v.price_bcv) * 0.7).toFixed(2));
+        return {
+          id: v.id,
+          size: v.size,
+          sku: v.sku,
+          stock_online: v.stock_online,
+          price_usd: Number(v.price_bcv),
+          price_divisas_usd: Number(v.price_divisas) > 0 ? Number(v.price_divisas) : Number(v.price_bcv),
+          price_bundle_usd: Number(v.price_bundle_bcv || 0),
+          price_bundle_divisas_usd: Number(v.price_bundle_divisas || 0),
+          price_mayor_usd: variantMayor,
+          price_mayor_divisas_usd: Number(v.price_mayor_divisas || 0),
+          price_ves: parseFloat((Number(v.price_bcv) * bcvRate).toFixed(2)),
+        };
+      }),
     };
 
     return NextResponse.json(

@@ -12,7 +12,7 @@ import WishlistDrawer from "@/components/store/WishlistDrawer";
 import SearchDrawer from "@/components/store/SearchDrawer";
 import QuickAddModal, { type QuickAddProduct, type QuickAddProductVariant } from "@/components/store/QuickAddModal";
 import { useWishlist } from "@/components/store/WishlistContext";
-import { ArrowLeft, AlertCircle, Bookmark, ShoppingBag } from "lucide-react";
+import { ArrowLeft, AlertCircle, Bookmark, ShoppingBag, Tag } from "lucide-react";
 
 type VariantType = {
   id: string;
@@ -37,6 +37,7 @@ type ProductDetailType = {
   photos: string[];
   price_usd: number;
   price_divisas_usd?: number;
+  price_mayor_usd?: number;
   price_ves: number;
   bcv_rate: number;
   variants: VariantType[];
@@ -329,22 +330,38 @@ export default function ProductDetailPage() {
               <h1 className="font-sans text-base sm:text-lg font-normal uppercase tracking-wider text-black">
                 {product.name}
               </h1>
-              <div className="mt-2 flex items-center gap-2.5">
+              <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="font-bold text-black text-xl tracking-tight">
                   ${bcvPriceUsd.toFixed(2)}
                 </span>
-                {hasDivisasDiscount && (
-                  <span className="text-[10px] uppercase tracking-wider text-black bg-slate-100 px-2 py-0.5 border border-slate-200 font-normal">
-                    ${divisasPriceUsd.toFixed(2)} PAGANDO EN DIVISA
-                  </span>
-                )}
+                <span className="text-[10px] font-semibold text-slate-500 uppercase">
+                  BCV
+                </span>
               </div>
 
+              {/* Sección 1: Descuento en Divisa */}
               {hasDivisasDiscount && (
-                <p className="mt-1 text-[9px] sm:text-[10px] text-slate-400 font-normal uppercase tracking-wider">
-                  Ahorra ${divisasSavings.toFixed(2)} pagando en USD, Zelle o USDT
-                </p>
+                <div className="mt-2.5">
+                  <span className="inline-block text-[10px] uppercase tracking-wider text-black bg-slate-100 px-2 py-0.5 border border-slate-200 font-normal">
+                    ${divisasPriceUsd.toFixed(2)} PAGANDO EN DIVISA
+                  </span>
+                  <p className="mt-1 text-[9px] sm:text-[10px] text-slate-400 font-normal uppercase tracking-wider">
+                    Ahorra ${divisasSavings.toFixed(2)} pagando en USD, Zelle o USDT
+                  </p>
+                </div>
               )}
+
+              {/* Sección 2: Descuentos por Paquete y Al Mayor (Verde clarito) */}
+              <div className="mt-2.5">
+                <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-emerald-950 bg-emerald-50 px-2 py-0.5 border border-emerald-200/80 font-normal">
+                  <Tag className="w-3 h-3 text-emerald-700 stroke-[1.8] shrink-0" />
+                  <span>DESCUENTOS POR PAQUETE Y AL MAYOR</span>
+                </span>
+
+                <p className="mt-1 text-[9px] sm:text-[10px] text-slate-400 font-normal uppercase tracking-wider">
+                  Lleva a partir de 3 o más piezas combinables y consigue un descuento por paquete y por docena
+                </p>
+              </div>
             </div>
 
             {/* Size Selector */}
