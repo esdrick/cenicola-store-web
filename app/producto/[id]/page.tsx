@@ -12,6 +12,7 @@ import WishlistDrawer from "@/components/store/WishlistDrawer";
 import SearchDrawer from "@/components/store/SearchDrawer";
 import QuickAddModal, { type QuickAddProduct, type QuickAddProductVariant } from "@/components/store/QuickAddModal";
 import { useWishlist } from "@/components/store/WishlistContext";
+import ProductDetailSkeleton from "@/components/store/ProductDetailSkeleton";
 import { ArrowLeft, AlertCircle, Bookmark, ShoppingBag, Tag } from "lucide-react";
 
 type VariantType = {
@@ -206,18 +207,7 @@ export default function ProductDetailPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex flex-col font-sans">
-        <StoreNavbar cartCount={0} onOpenCart={() => {}} />
-        <main className="max-w-5xl mx-auto px-4 py-16 flex-1 text-center">
-          <div className="w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-[11px] text-slate-400 font-normal uppercase tracking-widest">
-            Cargando prenda...
-          </p>
-        </main>
-        <StoreFooter />
-      </div>
-    );
+    return <ProductDetailSkeleton />;
   }
 
   if (!product) {
@@ -264,12 +254,19 @@ export default function ProductDetailPage() {
       <main className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex-1">
         {/* Minimal Back Breadcrumb */}
         <div className="mb-5 flex items-center justify-between border-b border-slate-100 pb-2.5">
-          <Link
-            href="/catalogo"
-            className="inline-flex items-center gap-1 text-[11px] font-normal uppercase tracking-wider text-black hover:opacity-60 transition-opacity"
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined" && window.history.length > 1) {
+                router.back();
+              } else {
+                router.push("/catalogo");
+              }
+            }}
+            className="inline-flex items-center gap-1 text-[11px] font-normal uppercase tracking-wider text-black hover:opacity-60 transition-opacity cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Volver
-          </Link>
+          </button>
           <span className="text-[10px] text-slate-400 uppercase tracking-widest font-normal hidden sm:inline">
             COLECCIÓN / {product.type}
           </span>

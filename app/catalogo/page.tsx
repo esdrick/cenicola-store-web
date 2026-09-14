@@ -107,7 +107,16 @@ function CatalogContent() {
   // Filtering, Pagination and View Mode States
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [viewMode, setViewMode] = useState<"large" | "compact" | "list">("large");
-  const [visibleCount, setVisibleCount] = useState<number>(ITEMS_PER_PAGE);
+
+  // Read initial items count from URL params (e.g. ?items=60)
+  const itemsParam = parseInt(searchParams.get("items") || searchParams.get("limit") || "", 10);
+  const pageParam = parseInt(searchParams.get("page") || "", 10);
+  const initialCount = !isNaN(itemsParam) && itemsParam > 0
+    ? itemsParam
+    : !isNaN(pageParam) && pageParam > 0
+    ? pageParam * ITEMS_PER_PAGE
+    : ITEMS_PER_PAGE;
+  const [visibleCount, setVisibleCount] = useState<number>(initialCount);
 
   const { wishlistCount } = useWishlist();
 
@@ -115,10 +124,32 @@ function CatalogContent() {
   useEffect(() => {
     const currentCat = searchParams.get("category") || "";
     const currentQ = searchParams.get("q") || "";
+    const curItems = parseInt(searchParams.get("items") || searchParams.get("limit") || "", 10);
+    const curPage = parseInt(searchParams.get("page") || "", 10);
+
     setSelectedCategory(currentCat);
     setSearch(currentQ);
-    setVisibleCount(ITEMS_PER_PAGE);
+
+    if (!isNaN(curItems) && curItems > 0) {
+      setVisibleCount(curItems);
+    } else if (!isNaN(curPage) && curPage > 0) {
+      setVisibleCount(curPage * ITEMS_PER_PAGE);
+    }
   }, [searchParams]);
+
+  // Track window scroll position and set manual scroll restoration
+  useEffect(() => {
+    if (typeof window !== "undefined" && "scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+    const handleScroll = () => {
+      if (window.scrollY > 0) {
+        sessionStorage.setItem("cenicola_catalog_scroll_y", window.scrollY.toString());
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     try {
@@ -174,6 +205,46 @@ function CatalogContent() {
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+
+  // Restore scroll position to the exact clicked product after loading products
+  useEffect(() => {
+    if (!loading && products.length > 0) {
+      try {
+        const lastProductId = sessionStorage.getItem("cenicola_last_clicked_product_id");
+        const savedScroll = sessionStorage.getItem("cenicola_catalog_scroll_y");
+
+        const scrollToTarget = () => {
+          if (lastProductId) {
+            const el = document.getElementById(`product-card-${lastProductId}`);
+            if (el) {
+              el.scrollIntoView({ block: "center", behavior: "instant" });
+              return true;
+            }
+          }
+          if (savedScroll) {
+            const scrollY = parseInt(savedScroll, 10);
+            if (!isNaN(scrollY) && scrollY > 0) {
+              window.scrollTo({ top: scrollY, behavior: "instant" });
+              return true;
+            }
+          }
+          return false;
+        };
+
+        const t1 = setTimeout(scrollToTarget, 30);
+        const t2 = setTimeout(scrollToTarget, 120);
+        const t3 = setTimeout(scrollToTarget, 300);
+        const t4 = setTimeout(scrollToTarget, 600);
+
+        return () => {
+          clearTimeout(t1);
+          clearTimeout(t2);
+          clearTimeout(t3);
+          clearTimeout(t4);
+        };
+      } catch {}
+    }
+  }, [loading, products.length]);
 
   const handleUpdateQuantity = (variant_id: string, qty: number) => {
     if (qty <= 0) {
@@ -249,19 +320,63 @@ function CatalogContent() {
       });
   }, [products, filters]);
 
+  const clearSavedCatalogState = () => {
+    try {
+      sessionStorage.removeItem("cenicola_catalog_scroll_y");
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("items");
+        url.searchParams.delete("page");
+        url.searchParams.delete("limit");
+        window.history.replaceState(null, "", url.toString());
+      }
+    } catch {}
+  };
+
   const handleCategorySelect = (cat: string) => {
+    clearSavedCatalogState();
     setSelectedCategory(cat);
     setVisibleCount(ITEMS_PER_PAGE);
+    if (typeof window !== "undefined") {
+      try {
+        const url = new URL(window.location.href);
+        if (cat) {
+          url.searchParams.set("category", cat);
+        } else {
+          url.searchParams.delete("category");
+        }
+        url.searchParams.delete("items");
+        url.searchParams.delete("page");
+        url.searchParams.delete("limit");
+        window.history.replaceState(null, "", url.toString());
+      } catch {}
+    }
   };
 
   const handleFilterChange = (newFilters: FilterState) => {
+    clearSavedCatalogState();
     setFilters(newFilters);
     setVisibleCount(ITEMS_PER_PAGE);
   };
 
   const handleSearchSubmit = (q: string) => {
+    clearSavedCatalogState();
     setSearch(q);
     setVisibleCount(ITEMS_PER_PAGE);
+    if (typeof window !== "undefined") {
+      try {
+        const url = new URL(window.location.href);
+        if (q) {
+          url.searchParams.set("q", q);
+        } else {
+          url.searchParams.delete("q");
+        }
+        url.searchParams.delete("items");
+        url.searchParams.delete("page");
+        url.searchParams.delete("limit");
+        window.history.replaceState(null, "", url.toString());
+      } catch {}
+    }
   };
 
   const visibleProducts = useMemo(() => {
@@ -269,7 +384,17 @@ function CatalogContent() {
   }, [filteredProducts, visibleCount]);
 
   const handleLoadMore = () => {
-    setVisibleCount((prev) => prev + ITEMS_PER_PAGE);
+    const nextCount = visibleCount + ITEMS_PER_PAGE;
+    setVisibleCount(nextCount);
+    if (typeof window !== "undefined") {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set("items", nextCount.toString());
+        url.searchParams.delete("page");
+        url.searchParams.delete("limit");
+        window.history.replaceState(null, "", url.toString());
+      } catch {}
+    }
   };
 
   const activeFiltersCount = useMemo(() => {
@@ -287,6 +412,14 @@ function CatalogContent() {
     setSelectedCategory("");
     setSearch("");
     setVisibleCount(ITEMS_PER_PAGE);
+    if (typeof window !== "undefined") {
+      try {
+        const url = new URL(window.location.pathname, window.location.origin);
+        window.history.replaceState(null, "", url.toString());
+        sessionStorage.removeItem("cenicola_catalog_scroll_y");
+        sessionStorage.removeItem("cenicola_last_clicked_product_id");
+      } catch {}
+    }
   };
 
   const defaultCategories = ["Mujer", "Hombre", "Niños", "Niño", "Niña"];

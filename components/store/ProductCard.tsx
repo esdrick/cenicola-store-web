@@ -108,7 +108,16 @@ export default function ProductCard(props: ProductCardProps) {
   // 1. REAL COMPACT LIST VIEW MODE (Small thumbnail, clean row item)
   if (viewMode === "list") {
     return (
-      <div className="group bg-white py-2.5 px-3 sm:px-4 border-b border-slate-100 hover:bg-slate-50/80 transition-colors text-black flex items-center justify-between gap-2.5 sm:gap-5">
+      <div
+        id={`product-card-${id}`}
+        onClickCapture={() => {
+          try {
+            sessionStorage.setItem("cenicola_last_clicked_product_id", id);
+            sessionStorage.setItem("cenicola_catalog_scroll_y", window.scrollY.toString());
+          } catch {}
+        }}
+        className="group bg-white py-2.5 px-3 sm:px-4 border-b border-slate-100 hover:bg-slate-50/80 transition-colors text-black flex items-center justify-between gap-2.5 sm:gap-5"
+      >
         {/* Left: Small Thumbnail Image & Details */}
         <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
           {/* Small Compact Image (w-12 sm:w-16, 3:4 aspect) */}
@@ -226,7 +235,16 @@ export default function ProductCard(props: ProductCardProps) {
   const isCompact = viewMode === "compact";
 
   return (
-    <div className="group flex flex-col bg-white overflow-hidden text-black relative font-sans">
+    <div
+      id={`product-card-${id}`}
+      onClickCapture={() => {
+        try {
+          sessionStorage.setItem("cenicola_last_clicked_product_id", id);
+          sessionStorage.setItem("cenicola_catalog_scroll_y", window.scrollY.toString());
+        } catch {}
+      }}
+      className="group flex flex-col bg-white overflow-hidden text-black relative font-sans"
+    >
       {/* Product Image Showcase (Lefties High-Aspect Ratio 3:4) */}
       <div className="relative aspect-[3/4] w-full bg-slate-100 overflow-hidden block">
         <Link href={`/producto/${id}`} className="w-full h-full block relative">
