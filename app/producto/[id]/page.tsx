@@ -511,7 +511,13 @@ export default function ProductDetailPage() {
         onClose={() => setQuickAddModalOpen(false)}
         product={quickAddTargetProduct}
         onAddToCart={handleAddToCartFromModal}
-        onGoToCatalog={() => router.push("/catalogo")}
+        onGoToCatalog={() => {
+          if (typeof window !== "undefined" && window.history.length > 1) {
+            router.back();
+          } else {
+            router.push("/catalogo");
+          }
+        }}
         onGoToCheckout={() => router.push("/checkout")}
         onOpenCart={() => setCartOpen(true)}
         cartTotalCount={cart.reduce((s, i) => s + i.quantity, 0)}

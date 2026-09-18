@@ -681,7 +681,7 @@ function CatalogContent() {
         product={quickAddTargetProduct}
         onAddToCart={handleAddToCartFromModal}
         onGoToCatalog={() => {
-          window.scrollTo({ top: 0, behavior: "smooth" });
+          // Permanecer en la posición exacta del catálogo con sus filtros y paginación activos
         }}
         onGoToCheckout={() => router.push("/checkout")}
         onOpenCart={() => setCartOpen(true)}
