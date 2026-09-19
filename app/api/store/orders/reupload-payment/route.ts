@@ -105,6 +105,28 @@ export async function POST(req: NextRequest) {
     }
 
     const isCash = validPaymentType === "efectivo_bs" || validPaymentType === "efectivo_usd";
+    const isZelle = validPaymentType === "zelle";
+
+    const cleanRef = reference.trim();
+    if (!isCash) {
+      if (isZelle) {
+        const pureRef = cleanRef.split("(")[0].trim();
+        if (pureRef.length < 6 || pureRef.length > 20) {
+          return NextResponse.json(
+            { error: "El número de referencia de Zelle debe tener entre 6 y 20 caracteres" },
+            { status: 400 }
+          );
+        }
+      } else {
+        if (cleanRef.length !== 8) {
+          return NextResponse.json(
+            { error: "El número de referencia debe tener exactamente los últimos 8 dígitos" },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     const refHash = isCash ? null : normalizeReference(reference);
 
     // 2. Check duplicate reference

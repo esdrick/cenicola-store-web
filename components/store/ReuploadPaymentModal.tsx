@@ -73,8 +73,8 @@ export default function ReuploadPaymentModal({
         return;
       }
     } else {
-      if (cleanRef.length !== 6) {
-        setErrorMsg("El número de referencia debe tener exactamente 6 dígitos");
+      if (cleanRef.length !== 8) {
+        setErrorMsg("El número de referencia debe tener exactamente los últimos 8 dígitos");
         return;
       }
     }
@@ -221,15 +221,15 @@ export default function ReuploadPaymentModal({
             {/* Número de Referencia */}
             <div>
               <label className="block text-[11px] font-semibold uppercase tracking-wider text-black mb-1.5">
-                Número de Referencia / Comprobante {paymentType === "zelle" ? "(6 a 20 dígitos)" : "(6 dígitos)"} *
+                {paymentType === "zelle" ? "N° de Referencia de Pago (6 a 20 dígitos) *" : "Últimos 8 dígitos de la referencia *"}
               </label>
               <input
                 type="text"
                 required
-                maxLength={paymentType === "zelle" ? 20 : 6}
+                maxLength={paymentType === "zelle" ? 20 : 8}
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
-                placeholder={paymentType === "zelle" ? "Ej. 1234567890" : "Ej. 123456"}
+                placeholder={paymentType === "zelle" ? "Ej. 1234567890" : "Ej. 12345678"}
                 className="w-full px-3.5 py-2.5 text-xs text-black border border-slate-300 focus:outline-none focus:border-black rounded-xs bg-white font-mono placeholder:text-slate-400"
               />
             </div>

@@ -529,8 +529,8 @@ export default function CheckoutPage() {
           return;
         }
       } else {
-        if (cleanRef.length !== 6) {
-          setOrderError("El número de referencia debe tener exactamente 6 dígitos.");
+        if (cleanRef.length !== 8) {
+          setOrderError("El número de referencia debe tener exactamente los últimos 8 dígitos.");
           return;
         }
       }
@@ -1411,7 +1411,7 @@ export default function CheckoutPage() {
                     )}
                     <div className="sm:col-span-2">
                       <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">
-                        DIRECCIÓN DE ENVÍO / AGENCIA (MRW, ZOOM, TEALCA) *
+                        DIRECCIÓN DE ENVÍO COMPLETA / AGENCIA (MRW, ZOOM, TEALCA) *
                       </label>
                       <textarea
                         rows={2}
@@ -1422,7 +1422,7 @@ export default function CheckoutPage() {
                           setSavedUserAddress(e.target.value);
                         }}
                         className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white"
-                        placeholder="Ej. Agencia MRW Sabana Grande, Caracas / o dirección de entrega..."
+                        placeholder="Ej. Estado, Ciudad, Municipio, Dirección exacta o Nombre y Código de Agencia (MRW, Zoom, Tealca)..."
                         required
                       />
                     </div>
@@ -1632,15 +1632,15 @@ export default function CheckoutPage() {
 
                   <div>
                     <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">
-                      N° de Referencia de Pago {selectedPaymentType.toLowerCase().includes("zelle") ? "(6 a 20 dígitos)" : "(6 dígitos)"} *
+                      {selectedPaymentType.toLowerCase().includes("zelle") ? "N° de Referencia de Pago (6 a 20 dígitos) *" : "Últimos 8 dígitos de la referencia *"}
                     </label>
                     <input
                       type="text"
-                      maxLength={selectedPaymentType.toLowerCase().includes("zelle") ? 20 : 6}
+                      maxLength={selectedPaymentType.toLowerCase().includes("zelle") ? 20 : 8}
                       value={reference}
                       onChange={(e) => setReference(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black font-mono font-semibold rounded-xs bg-white"
-                      placeholder={selectedPaymentType.toLowerCase().includes("zelle") ? "Ej. 1234567890" : "Ej. 123456"}
+                      placeholder={selectedPaymentType.toLowerCase().includes("zelle") ? "Ej. 1234567890" : "Ej. 12345678"}
                       required={!selectedPaymentType.includes("Efectivo")}
                     />
                   </div>

@@ -139,8 +139,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Teléfono inválido (debe tener entre 7 y 20 caracteres)" }, { status: 400 });
     }
 
-    if (!cleanAddress || cleanAddress.length < 5 || cleanAddress.length > 250) {
-      return NextResponse.json({ error: "Dirección de envío requerida (máximo 250 caracteres)" }, { status: 400 });
+    if (!cleanAddress || cleanAddress.length > 250) {
+      return NextResponse.json({ error: "Dirección de envío completa requerida (máximo 250 caracteres)" }, { status: 400 });
     }
 
     if (!cleanShippingCompany) {
@@ -173,8 +173,8 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "El número de referencia de Zelle debe tener entre 6 y 20 caracteres" }, { status: 400 });
         }
       } else {
-        if (reference.length !== 6) {
-          return NextResponse.json({ error: "El número de referencia debe tener exactamente 6 dígitos" }, { status: 400 });
+        if (reference.length !== 8) {
+          return NextResponse.json({ error: "El número de referencia debe tener exactamente los últimos 8 dígitos" }, { status: 400 });
         }
       }
     }
