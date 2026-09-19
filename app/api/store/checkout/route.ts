@@ -322,7 +322,8 @@ export async function POST(request: NextRequest) {
       const systemAdmin = await tx.user.findFirst({ where: { role: "admin" } });
       const createdById = systemAdmin?.id ?? null;
 
-      const fullNotes = `[Correo Web: ${cleanEmail}] ${cleanNotes}`.trim();
+      const zelleTag = isZelle && zelleHolder ? `[Titular Zelle: ${zelleHolder}] ` : "";
+      const fullNotes = `[Correo Web: ${cleanEmail}] ${zelleTag}${cleanNotes}`.trim();
 
       // 4. Create Order linked to CustomerAccount
       const orderNumber = await generateOrderNumber(tx, "WEB");

@@ -764,14 +764,14 @@ export default function CheckoutPage() {
                         {item.color && ` | COLOR: ${item.color}`}
                       </p>
                       <p className="text-[10px] text-slate-500 font-normal">
-                        Cantidad: <span className="font-semibold text-black">{item.quantity}</span> x ${item.effectiveUnitPrice.toFixed(2)}
+                        Cantidad: <span className="font-semibold text-black">{item.quantity}</span> x ${item.price_usd.toFixed(2)}
                       </p>
                     </div>
                   </div>
 
                   <div className="text-right shrink-0 space-y-0.5">
                     <span className="font-bold text-black text-sm block">
-                      ${item.subtotalUsd.toFixed(2)}
+                      ${(item.price_usd * item.quantity).toFixed(2)}
                     </span>
                     {item.tierInfo.tier !== "detal" && (
                       <span className="text-[9px] font-semibold text-black bg-slate-100 px-1.5 py-0.5 uppercase tracking-wider block rounded-xs">
