@@ -23,6 +23,7 @@ export default function ReuploadPaymentModal({
 }: Props) {
   const [paymentType, setPaymentType] = useState(isDivisasOrder ? "zelle" : "pago_movil");
   const [reference, setReference] = useState("");
+  const [zelleHolder, setZelleHolder] = useState("");
   const [paymentPhoto, setPaymentPhoto] = useState("");
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -65,8 +66,21 @@ export default function ReuploadPaymentModal({
     e.preventDefault();
     setErrorMsg(null);
 
-    if (!reference.trim() || reference.trim().length < 4) {
-      setErrorMsg("Ingresa una referencia válida (mínimo 4 dígitos)");
+    const cleanRef = reference.trim();
+    if (paymentType === "zelle") {
+      if (cleanRef.length < 6 || cleanRef.length > 20) {
+        setErrorMsg("El número de referencia de Zelle debe tener entre 6 y 20 caracteres");
+        return;
+      }
+    } else {
+      if (cleanRef.length !== 6) {
+        setErrorMsg("El número de referencia debe tener exactamente 6 dígitos");
+        return;
+      }
+    }
+
+    if (paymentType === "zelle" && (!zelleHolder.trim() || zelleHolder.trim().length < 3)) {
+      setErrorMsg("Ingresa el nombre y apellido del titular de la cuenta Zelle");
       return;
     }
 
@@ -77,6 +91,10 @@ export default function ReuploadPaymentModal({
 
     setSubmitting(true);
 
+    const finalRef = paymentType === "zelle" && zelleHolder.trim()
+      ? `${cleanRef} (Titular: ${zelleHolder.trim()})`
+      : cleanRef;
+
     try {
       const res = await fetch("/api/store/orders/reupload-payment", {
         method: "POST",
@@ -85,7 +103,7 @@ export default function ReuploadPaymentModal({
           order_number: orderNumber,
           email: customerEmail,
           payment_type: paymentType,
-          reference: reference.trim(),
+          reference: finalRef,
           payment_photo: paymentPhoto,
         }),
       });
@@ -183,17 +201,35 @@ export default function ReuploadPaymentModal({
               </select>
             </div>
 
+            {/* Titular Zelle (Solo si es Zelle) */}
+            {paymentType === "zelle" && (
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-black mb-1.5">
+                  Nombre y Apellido del Titular Zelle *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={zelleHolder}
+                  onChange={(e) => setZelleHolder(e.target.value)}
+                  placeholder="Ej. Carlos Pérez / Maria Rodriguez"
+                  className="w-full px-3.5 py-2.5 text-xs text-black border border-slate-300 focus:outline-none focus:border-black rounded-xs bg-white placeholder:text-slate-400"
+                />
+              </div>
+            )}
+
             {/* Número de Referencia */}
             <div>
               <label className="block text-[11px] font-semibold uppercase tracking-wider text-black mb-1.5">
-                Número de Referencia / Comprobante *
+                Número de Referencia / Comprobante {paymentType === "zelle" ? "(6 a 20 dígitos)" : "(6 dígitos)"} *
               </label>
               <input
                 type="text"
                 required
+                maxLength={paymentType === "zelle" ? 20 : 6}
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
-                placeholder="Ej. 123456"
+                placeholder={paymentType === "zelle" ? "Ej. 1234567890" : "Ej. 123456"}
                 className="w-full px-3.5 py-2.5 text-xs text-black border border-slate-300 focus:outline-none focus:border-black rounded-xs bg-white font-mono placeholder:text-slate-400"
               />
             </div>

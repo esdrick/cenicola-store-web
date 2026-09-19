@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Correo electrónico requerido" }, { status: 400 });
     }
 
-    if (!reference || !reference.trim() || reference.trim().length < 4) {
-      return NextResponse.json({ error: "Número de referencia de pago inválido" }, { status: 400 });
+    if (!reference || !reference.trim()) {
+      return NextResponse.json({ error: "Número de referencia de pago requerido" }, { status: 400 });
     }
 
     if (!payment_photo || !payment_photo.trim()) {

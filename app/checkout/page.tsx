@@ -103,6 +103,7 @@ export default function CheckoutPage() {
   // Payment Form Fields
   const [selectedPaymentType, setSelectedPaymentType] = useState("Pago Móvil");
   const [reference, setReference] = useState("");
+  const [zelleHolderName, setZelleHolderName] = useState("");
   const [paymentPhoto, setPaymentPhoto] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -509,20 +510,50 @@ export default function CheckoutPage() {
         ? customShippingCompany || "Otra"
         : shippingCompany;
 
+    const isZellePayment = selectedPaymentType.toLowerCase().includes("zelle");
+
     if (!customerName || !customerLastname || !docNumber || !phone || !effectiveAddress) {
       setOrderError("Por favor completa todos los datos obligatorios de contacto.");
       return;
     }
 
-    if (!isCashPayment && !reference) {
-      setOrderError("Por favor ingresa el número de referencia del pago realizado.");
+    if (!isCashPayment) {
+      const cleanRef = reference.trim();
+      if (!cleanRef) {
+        setOrderError("Por favor ingresa el número de referencia del pago realizado.");
+        return;
+      }
+      if (isZellePayment) {
+        if (cleanRef.length < 6 || cleanRef.length > 20) {
+          setOrderError("El número de referencia de Zelle debe tener entre 6 y 20 caracteres.");
+          return;
+        }
+      } else {
+        if (cleanRef.length !== 6) {
+          setOrderError("El número de referencia debe tener exactamente 6 dígitos.");
+          return;
+        }
+      }
+    }
+
+    if (isZellePayment && (!zelleHolderName || zelleHolderName.trim().length < 3)) {
+      setOrderError("Por favor ingresa el nombre y apellido del titular de la cuenta Zelle.");
+      return;
+    }
+
+    if (!isCashPayment && !paymentPhoto) {
+      setOrderError("Por favor adjunta la foto o captura del comprobante de pago.");
       return;
     }
 
     setIsSubmittingOrder(true);
     setOrderError("");
 
-    const effectiveRef = isCashPayment ? "EFECTIVO EN TIENDA" : reference.trim();
+    const effectiveRef = isCashPayment
+      ? "EFECTIVO EN TIENDA"
+      : isZellePayment && zelleHolderName.trim()
+      ? `${reference.trim()} (Titular: ${zelleHolderName.trim()})`
+      : reference.trim();
 
     try {
       const res = await fetch("/api/store/checkout", {
@@ -540,7 +571,8 @@ export default function CheckoutPage() {
           notes,
           payment: {
             payment_type: selectedPaymentType,
-            reference: effectiveRef,
+            reference: reference.trim(),
+            zelle_holder: isZellePayment ? zelleHolderName.trim() : undefined,
             payment_photo: paymentPhoto,
           },
           items: cartWithTiers.map((i) => ({
@@ -598,6 +630,12 @@ export default function CheckoutPage() {
       return;
     }
 
+    const isZellePayment = selectedPaymentType.toLowerCase().includes("zelle");
+    if (isZellePayment && (!zelleHolderName || zelleHolderName.trim().length < 3)) {
+      alert("Por favor ingresa el nombre y apellido del titular de la cuenta Zelle antes de enviar.");
+      return;
+    }
+
     const finalShippingAgency =
       deliveryMethod === "retiro"
         ? STORE_OFFICES[selectedOffice].shippingCompanyValue
@@ -607,13 +645,19 @@ export default function CheckoutPage() {
 
     const effectiveAddress = deliveryMethod === "retiro" ? STORE_OFFICES[selectedOffice].address : address;
 
+    const effectiveRef = selectedPaymentType.toLowerCase().includes("efectivo")
+      ? "EFECTIVO EN TIENDA"
+      : isZellePayment && zelleHolderName.trim()
+      ? `${reference.trim()} (Titular: ${zelleHolderName.trim()})`
+      : reference;
+
     const payload = {
       customerName: `${customerName} ${customerLastname}`.trim(),
       customerPhone: phone,
       docNumber: `${docType}-${docNumber}`,
       address: `${finalShippingAgency}: ${effectiveAddress}`,
       paymentMethod: selectedPaymentType,
-      reference: selectedPaymentType.toLowerCase().includes("efectivo") ? "EFECTIVO EN TIENDA" : reference,
+      reference: effectiveRef,
       notes,
       bcvRate,
       items: cartWithTiers.map((i) => ({
@@ -1569,24 +1613,41 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  {selectedPaymentType.toLowerCase().includes("zelle") && (
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] uppercase tracking-wider text-black font-semibold mb-1">
+                        Nombre y Apellido del Titular de la Cuenta Zelle *
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={100}
+                        value={zelleHolderName}
+                        onChange={(e) => setZelleHolderName(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white"
+                        placeholder="Ej. Carlos Pérez / Maria Rodriguez"
+                        required
+                      />
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">
-                      N° de Referencia de Pago *
+                      N° de Referencia de Pago {selectedPaymentType.toLowerCase().includes("zelle") ? "(6 a 20 dígitos)" : "(6 dígitos)"} *
                     </label>
                     <input
                       type="text"
-                      maxLength={30}
+                      maxLength={selectedPaymentType.toLowerCase().includes("zelle") ? 20 : 6}
                       value={reference}
                       onChange={(e) => setReference(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black font-mono font-semibold rounded-xs bg-white"
-                      placeholder="Ej. 123456"
+                      placeholder={selectedPaymentType.toLowerCase().includes("zelle") ? "Ej. 1234567890" : "Ej. 123456"}
                       required={!selectedPaymentType.includes("Efectivo")}
                     />
                   </div>
 
                   <div>
                     <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">
-                      Foto / Captura del Comprobante
+                      Foto / Captura del Comprobante *
                     </label>
 
                     <input

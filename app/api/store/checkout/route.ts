@@ -157,9 +157,30 @@ export async function POST(request: NextRequest) {
 
     const validPaymentType = normalizePaymentType(payment.payment_type);
     const isCash = validPaymentType === "efectivo_bs" || validPaymentType === "efectivo_usd";
+    const isZelle = validPaymentType === "zelle";
+    const zelleHolder = sanitize(payment?.zelle_holder || "");
 
-    if (!isCash && (!reference || reference.length < 4 || reference.length > 30)) {
-      return NextResponse.json({ error: "Número de referencia de pago inválido (debe tener entre 4 y 30 caracteres)" }, { status: 400 });
+    if (isZelle && (!zelleHolder || zelleHolder.length < 3)) {
+      return NextResponse.json({ error: "Nombre y apellido del titular de la cuenta Zelle requerido" }, { status: 400 });
+    }
+
+    if (!isCash) {
+      if (!reference) {
+        return NextResponse.json({ error: "Número de referencia de pago requerido" }, { status: 400 });
+      }
+      if (isZelle) {
+        if (reference.length < 6 || reference.length > 20) {
+          return NextResponse.json({ error: "El número de referencia de Zelle debe tener entre 6 y 20 caracteres" }, { status: 400 });
+        }
+      } else {
+        if (reference.length !== 6) {
+          return NextResponse.json({ error: "El número de referencia debe tener exactamente 6 dígitos" }, { status: 400 });
+        }
+      }
+    }
+
+    if (!isCash && (!payment.payment_photo || !String(payment.payment_photo).trim())) {
+      return NextResponse.json({ error: "La foto o captura del comprobante de pago es obligatoria" }, { status: 400 });
     }
 
     const customer_id_doc = `${doc_type}-${cleanDocNumber}`;
@@ -372,6 +393,12 @@ export async function POST(request: NextRequest) {
       const paidAmtUsd = payment.amount_usd ? Math.ceil(Number(payment.amount_usd)) : totalUsd;
       const paidAmtVes = isVesPayment ? parseFloat((paidAmtUsd * tasaRate).toFixed(2)) : null;
 
+      const finalRef = isCash
+        ? "EFECTIVO"
+        : isZelle && zelleHolder
+        ? `${reference} (Titular: ${zelleHolder})`
+        : reference;
+
       await tx.orderPayment.create({
         data: {
           order_id: order.id,
@@ -380,7 +407,7 @@ export async function POST(request: NextRequest) {
           amount_ves: paidAmtVes,
           exchange_rate_id: isVesPayment ? tasaId : null,
           payment_date: new Date(today),
-          reference: isCash ? "EFECTIVO" : reference,
+          reference: finalRef,
           reference_hash: refHash,
           payment_photo: payment.payment_photo?.trim() || null,
           status: "pendiente",
