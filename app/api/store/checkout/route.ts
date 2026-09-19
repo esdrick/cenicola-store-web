@@ -268,7 +268,8 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      totalUsd = parseFloat(totalUsd.toFixed(2));
+      // Round UP order total to next integer (e.g. 33.33 -> 34, 39.98 -> 40)
+      totalUsd = Math.ceil(totalUsd);
 
       // 2. Smart CustomerAccount Resolution & Update
       let customerAccountId: string | null = authenticatedAccountId;
@@ -368,7 +369,7 @@ export async function POST(request: NextRequest) {
       // 6. Create Order Payment
       const today = new Date().toISOString().slice(0, 10);
       const isVesPayment = ["efectivo_bs", "transferencia", "pago_movil"].includes(validPaymentType);
-      const paidAmtUsd = payment.amount_usd ? parseFloat(Number(payment.amount_usd).toFixed(2)) : totalUsd;
+      const paidAmtUsd = payment.amount_usd ? Math.ceil(Number(payment.amount_usd)) : totalUsd;
       const paidAmtVes = isVesPayment ? parseFloat((paidAmtUsd * tasaRate).toFixed(2)) : null;
 
       await tx.orderPayment.create({

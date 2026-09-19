@@ -462,10 +462,11 @@ export default function CheckoutPage() {
     };
   });
 
-  const totalUsd = cartWithTiers.reduce((sum, i) => sum + i.subtotalUsd, 0);
+  const rawTotalUsd = cartWithTiers.reduce((sum, i) => sum + i.subtotalUsd, 0);
+  const totalUsd = Math.ceil(rawTotalUsd);
   const totalVes = totalUsd * bcvRate;
 
-  // Breakdown metrics for customer transparency
+  // Breakdown metrics for customer transparency (Adjusted so Subtotal - Discounts = Total)
   const totalRegularBcvUsd = cart.reduce((sum, i) => sum + i.price_usd * i.quantity, 0);
   const totalDivisasDiscountUsd = isDivisasPayment
     ? cart.reduce((sum, i) => {
@@ -474,15 +475,10 @@ export default function CheckoutPage() {
         return sum + (i.price_usd - divPrice) * i.quantity;
       }, 0)
     : 0;
-  const totalVolumeDiscountUsd = cartWithTiers.reduce((sum, i) => {
-    const activeBase = isDivisasPayment
-      ? i.price_divisas_usd && i.price_divisas_usd > 0
-        ? i.price_divisas_usd
-        : i.price_usd
-      : i.price_usd;
-    const regularCost = activeBase * i.quantity;
-    return sum + (regularCost - i.subtotalUsd);
-  }, 0);
+  const totalVolumeDiscountUsd = Math.max(
+    0,
+    parseFloat((totalRegularBcvUsd - totalDivisasDiscountUsd - totalUsd).toFixed(2))
+  );
 
   // Selected Bank account info list (matches selected payment method)
   const matchingBankAccounts = bankAccounts.filter((b) => {

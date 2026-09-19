@@ -58,7 +58,8 @@ export default function CartDrawer({
     };
   });
 
-  const totalUsd = itemsWithTier.reduce((sum, item) => sum + item.subtotalUsd, 0);
+  const rawTotalUsd = itemsWithTier.reduce((sum, item) => sum + item.subtotalUsd, 0);
+  const totalUsd = Math.ceil(rawTotalUsd);
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden font-sans">
