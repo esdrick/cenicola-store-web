@@ -96,6 +96,7 @@ const EMOJI = {
   frame: "\u{1F5BC}\u{FE0F}",
   check: "\u{2714}\u{FE0F}",
   pointUp: "\u{261D}\u{FE0F}",
+  globe: "\u{1F310}",
 };
 
 /**
@@ -221,7 +222,8 @@ export function formatWhatsAppOrderMessage(payload: WhatsAppOrderPayload): strin
     text += `${EMOJI.frame} Comprobante en Web: Adjuntado ${EMOJI.check}\n`;
   }
 
-  text += `\n${EMOJI.pointUp} Por favor envía este mensaje y te atenderemos lo antes posible`;
+  text += `\n${EMOJI.pointUp} Por favor envía este mensaje y te atenderemos lo antes posible\n\n`;
+  text += `${EMOJI.globe} https://qfranelas.com`;
 
   return text;
 }
