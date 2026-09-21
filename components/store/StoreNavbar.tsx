@@ -34,13 +34,13 @@ export default function StoreNavbar({
         {/* Mobile View: Infinite Smooth Horizontal Marquee Slider */}
         <div className="sm:hidden relative w-full overflow-hidden whitespace-nowrap">
           <div className="animate-marquee items-center gap-6">
-            <span>ENVÍOS A TODA VENEZUELA · MRW · ZOOM · TEALCA</span>
+            <span>ENVÍOS A TODA VENEZUELA · MRW · ZOOM · TEALCA · LAE</span>
             <span className="text-slate-500">•</span>
             <span>PRECIOS EN USD Y BOLÍVARES (TASA OFICIAL BCV)</span>
             <span className="text-slate-500">•</span>
             <span>MÉTODOS DE PAGO: PAGO MÓVIL · ZELLE · EFECTIVO</span>
             <span className="text-slate-500">•</span>
-            <span>ENVÍOS A TODA VENEZUELA · MRW · ZOOM · TEALCA</span>
+            <span>ENVÍOS A TODA VENEZUELA · MRW · ZOOM · TEALCA · LAE</span>
             <span className="text-slate-500">•</span>
             <span>PRECIOS EN USD Y BOLÍVARES (TASA OFICIAL BCV)</span>
             <span className="text-slate-500">•</span>
@@ -51,7 +51,7 @@ export default function StoreNavbar({
 
         {/* Desktop View: Static Spaced Bar */}
         <div className="hidden sm:flex justify-between items-center w-full">
-          <span>ENVÍOS A TODA VENEZUELA · MRW · ZOOM · TEALCA</span>
+          <span>ENVÍOS A TODA VENEZUELA · MRW · ZOOM · TEALCA · LAE</span>
           <span>PRECIOS EN USD Y BS (TASA OFICIAL BCV) · PAGO MÓVIL & ZELLE</span>
         </div>
       </div>

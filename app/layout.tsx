@@ -41,10 +41,10 @@ export const metadata: Metadata = {
     siteName: "Q´FRANELAS",
     images: [
       {
-        url: "/hero-banner.jpg",
+        url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "Q´FRANELAS Store Venezuela",
+        alt: "Q´FRANELAS — Tienda de Ropa Moderna en Venezuela",
       },
     ],
   },
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Q´FRANELAS — Tienda de Ropa Moderna en Venezuela",
     description: "Tienda de ropa moderna en Venezuela. Moda, elegancia y entrega rápida a todo el país.",
-    images: ["/hero-banner.jpg"],
+    images: ["/og-image.jpg"],
   },
   appleWebApp: {
     capable: true,

@@ -245,7 +245,7 @@ export default function ContactoPage() {
                 ATENCIÓN PERSONALIZADA
               </h4>
               <p className="text-slate-500 normal-case text-xs leading-relaxed">
-                Asesoría constante para compras al detal, por paquete o por docena para tu negocio.
+                Asesoría constante para compras al detal, por paquete o al mayor para tu negocio.
               </p>
             </div>
           </div>

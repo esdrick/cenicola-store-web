@@ -93,10 +93,10 @@ export default function CartDrawer({
                 <span>Agrega {3 - totalCartCount} {3 - totalCartCount === 1 ? "prenda más" : "prendas más"} para precio Paquete</span>
               )}
               {totalCartCount >= 3 && totalCartCount < 6 && (
-                <span>Precio Paquete activo · Agrega {6 - totalCartCount} más para precio Docena</span>
+                <span>Precio Paquete activo · Agrega {6 - totalCartCount} más para precio al Mayor</span>
               )}
               {totalCartCount >= 6 && (
-                <span>Precio de Docena activo en todas tus prendas</span>
+                <span>Precio al Mayor activo en todas tus prendas</span>
               )}
             </div>
           )}
@@ -159,14 +159,19 @@ export default function CartDrawer({
                         {item.name}
                       </Link>
 
-                      <div className="flex items-baseline gap-2 pt-0.5">
+                      <div className="flex items-baseline gap-2 pt-0.5 flex-wrap">
                         <span className="text-xs font-semibold text-black">
                           ${subtotalUsd.toFixed(2)}
                         </span>
                         {effectiveUnitPrice < item.price_usd && (
-                          <span className="text-[10px] text-slate-400 line-through">
-                            ${(item.price_usd * item.quantity).toFixed(2)}
-                          </span>
+                          <>
+                            <span className="text-[10px] text-slate-400 line-through">
+                              ${(item.price_usd * item.quantity).toFixed(2)}
+                            </span>
+                            <span className="text-[9px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1 py-0.2 rounded-xs uppercase tracking-wider">
+                              ${effectiveUnitPrice.toFixed(2)} c/u
+                            </span>
+                          </>
                         )}
                       </div>
 

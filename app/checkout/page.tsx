@@ -746,16 +746,38 @@ export default function CheckoutPage() {
               </button>
             </div>
 
+            {/* Global Volume Tier Status Banner in Checkout */}
+            {cart.length > 0 && (
+              <div className="bg-slate-50 border border-slate-200 p-3 text-xs text-black flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 rounded-xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold uppercase tracking-wider text-[11px] text-black">
+                    {totalCartCount >= 6
+                      ? "🔥 Descuento al Mayor Aplicado"
+                      : totalCartCount >= 3
+                      ? "✨ Descuento por Paquete Aplicado"
+                      : "ℹ️ Precios Detal"}
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-500 uppercase tracking-wider">
+                  {totalCartCount < 3
+                    ? `Agrega ${3 - totalCartCount} prenda(s) más para activar Precio Paquete`
+                    : totalCartCount < 6
+                    ? `Agrega ${6 - totalCartCount} prenda(s) más para activar Precio al Mayor`
+                    : "Precios de mayor aplicados en todas tus prendas"}
+                </span>
+              </div>
+            )}
+
             {/* Itemized List */}
             <div className="divide-y divide-slate-100">
               {cartWithTiers.map((item) => (
-                <div key={item.variant_id} className="py-3 flex items-center justify-between gap-4 text-xs">
+                <div key={item.variant_id} className="py-3.5 flex items-center justify-between gap-4 text-xs">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="relative w-14 aspect-[3/4] bg-slate-100 shrink-0 overflow-hidden border border-slate-200 rounded-xs">
                       <SafeImage src={item.photo} alt={item.name} fill sizes="60px" className="object-cover" />
                     </div>
 
-                    <div className="min-w-0 space-y-0.5">
+                    <div className="min-w-0 space-y-1">
                       <p className="font-semibold text-black uppercase tracking-wider line-clamp-1">
                         {item.name}
                       </p>
@@ -763,19 +785,31 @@ export default function CheckoutPage() {
                         TALLA: <span className="font-semibold text-black">{item.size}</span>
                         {item.color && ` | COLOR: ${item.color}`}
                       </p>
-                      <p className="text-[10px] text-slate-500 font-normal">
-                        Cantidad: <span className="font-semibold text-black">{item.quantity}</span> x ${item.price_usd.toFixed(2)}
-                      </p>
+                      <div className="text-[10px] text-slate-600 font-normal flex items-center gap-1.5 flex-wrap">
+                        <span>Cantidad: <strong className="text-black">{item.quantity}</strong></span>
+                        <span>x</span>
+                        <span className="font-bold text-black">${item.effectiveUnitPrice.toFixed(2)} c/u</span>
+                        {item.effectiveUnitPrice < item.price_usd && (
+                          <span className="text-slate-400 line-through text-[9px]">
+                            ${item.price_usd.toFixed(2)}
+                          </span>
+                        )}
+                        {item.tierInfo.tier !== "detal" && (
+                          <span className="text-[9px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 uppercase tracking-wider rounded-xs">
+                            {item.tierInfo.badgeLabel}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
                   <div className="text-right shrink-0 space-y-0.5">
                     <span className="font-bold text-black text-sm block">
-                      ${(item.price_usd * item.quantity).toFixed(2)}
+                      ${item.subtotalUsd.toFixed(2)}
                     </span>
-                    {item.tierInfo.tier !== "detal" && (
-                      <span className="text-[9px] font-semibold text-black bg-slate-100 px-1.5 py-0.5 uppercase tracking-wider block rounded-xs">
-                        {item.tierInfo.badgeLabel}
+                    {item.effectiveUnitPrice < item.price_usd && (
+                      <span className="text-[10px] text-slate-400 line-through block">
+                        ${(item.price_usd * item.quantity).toFixed(2)}
                       </span>
                     )}
                   </div>
@@ -786,26 +820,26 @@ export default function CheckoutPage() {
             {/* Price Totals & Detailed Discount Breakdown (USD & VES) */}
             <div className="pt-4 border-t border-slate-200 space-y-2 text-xs">
               <div className="flex justify-between text-slate-600">
-                <span>Subtotal base (BCV):</span>
+                <span>Subtotal base ({totalCartCount} prendas):</span>
                 <span>${totalRegularBcvUsd.toFixed(2)}</span>
               </div>
 
-              {isDivisasPayment && totalDivisasDiscountUsd > 0 && (
-                <div className="flex justify-between items-center text-black font-normal bg-slate-50 p-2.5 border border-slate-200 uppercase tracking-wider text-[11px] rounded-xs">
-                  <span>DESCUENTO DIVISA APLICADO:</span>
-                  <span className="font-semibold">-${totalDivisasDiscountUsd.toFixed(2)}</span>
+              {totalVolumeDiscountUsd > 0 && (
+                <div className="flex justify-between items-center text-emerald-800 font-normal bg-emerald-50 p-2.5 border border-emerald-200 uppercase tracking-wider text-[11px] rounded-xs">
+                  <span className="font-semibold">DESCUENTO PAQUETE / MAYOR APLICADO:</span>
+                  <span className="font-bold">-${totalVolumeDiscountUsd.toFixed(2)}</span>
                 </div>
               )}
 
-              {totalVolumeDiscountUsd > 0 && (
-                <div className="flex justify-between items-center text-black font-normal bg-slate-50 p-2.5 border border-slate-200 uppercase tracking-wider text-[11px] rounded-xs">
-                  <span>DESCUENTO PAQUETE/DOCENA APLICADO:</span>
-                  <span className="font-semibold">-${totalVolumeDiscountUsd.toFixed(2)}</span>
+              {isDivisasPayment && totalDivisasDiscountUsd > 0 && (
+                <div className="flex justify-between items-center text-emerald-800 font-normal bg-emerald-50 p-2.5 border border-emerald-200 uppercase tracking-wider text-[11px] rounded-xs">
+                  <span className="font-semibold">DESCUENTO PAGO EN DIVISAS APLICADO:</span>
+                  <span className="font-bold">-${totalDivisasDiscountUsd.toFixed(2)}</span>
                 </div>
               )}
 
               <div className="flex justify-between items-baseline pt-2 border-t border-slate-200 text-black">
-                <span className="font-bold uppercase tracking-wider text-sm">TOTAL GENERAL:</span>
+                <span className="font-bold uppercase tracking-wider text-sm">TOTAL A PAGAR:</span>
                 <div className="text-right">
                   <span className="font-extrabold text-2xl tracking-tight block">
                     ${totalUsd.toFixed(2)}

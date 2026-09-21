@@ -242,11 +242,11 @@ export default function QuickAddModal({
                   <span>
                     {cartTotalCount > 0 ? (
                       <>
-                        ✓ <strong>¡Precio Paquete activo!</strong> ({cartTotalCount} en carrito + {itemQuantity} nueva = {projectedTotalItems} total) · ¡Agrega <strong className="text-black font-semibold">{6 - projectedTotalItems}</strong> más para <strong>Docena</strong>!
+                        ✓ <strong>¡Precio Paquete activo!</strong> ({cartTotalCount} en carrito + {itemQuantity} nueva = {projectedTotalItems} total) · ¡Agrega <strong className="text-black font-semibold">{6 - projectedTotalItems}</strong> más para <strong>Mayor</strong>!
                       </>
                     ) : (
                       <>
-                        ✓ <strong>¡Precio Paquete activo!</strong> · ¡Agrega <strong className="text-black font-semibold">{6 - projectedTotalItems}</strong> más para <strong>Docena</strong>!
+                        ✓ <strong>¡Precio Paquete activo!</strong> · ¡Agrega <strong className="text-black font-semibold">{6 - projectedTotalItems}</strong> más para <strong>Mayor</strong>!
                       </>
                     )}
                   </span>
@@ -261,16 +261,16 @@ export default function QuickAddModal({
                   <span>
                     {cartTotalCount > 0 ? (
                       <>
-                        ★ <strong>¡Precio Docena activo!</strong> ({cartTotalCount} en carrito + {itemQuantity} nueva = {projectedTotalItems} prendas en total)
+                        ★ <strong>¡Precio al Mayor activo!</strong> ({cartTotalCount} en carrito + {itemQuantity} nueva = {projectedTotalItems} prendas en total)
                       </>
                     ) : (
                       <>
-                        ★ <strong>¡Precio Docena activo!</strong> (6+ prendas seleccionadas)
+                        ★ <strong>¡Precio al Mayor activo!</strong> (6+ prendas seleccionadas)
                       </>
                     )}
                   </span>
                   <span className="text-[9px] bg-black text-white px-1.5 py-0.5 font-bold uppercase shrink-0 ml-2 rounded-none">
-                    Docena
+                    Mayor
                   </span>
                 </div>
               )}

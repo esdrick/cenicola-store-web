@@ -27,7 +27,7 @@ export function getVolumeTierInfo(
   const basePrice = item.price_usd;
   const volumeSignal = totalCartItems && totalCartItems > 0 ? totalCartItems : quantity;
 
-  if (volumeSignal >= 6) {
+    if (volumeSignal >= 6) {
     const docenaPrice = item.price_mayor_usd && item.price_mayor_usd > 0
       ? item.price_mayor_usd
       : Number((basePrice * 0.70).toFixed(2));
@@ -35,7 +35,7 @@ export function getVolumeTierInfo(
     return {
       tier: "docena",
       effectiveUnitPrice: docenaPrice,
-      badgeLabel: "[Docena]",
+      badgeLabel: discount > 0 ? `Mayor (-${discount}%)` : "Mayor",
       discountPercentage: Math.max(0, discount),
     };
   }
@@ -48,7 +48,7 @@ export function getVolumeTierInfo(
     return {
       tier: "paquete",
       effectiveUnitPrice: bundlePrice,
-      badgeLabel: "[Paquete]",
+      badgeLabel: discount > 0 ? `Paquete (-${discount}%)` : "Paquete",
       discountPercentage: Math.max(0, discount),
     };
   }
@@ -198,7 +198,7 @@ export function formatWhatsAppOrderMessage(payload: WhatsAppOrderPayload): strin
   text += `*Resumen del pedido:*\n\n`;
 
   payload.items.forEach((item) => {
-    const tierBadge = item.tier === "docena" ? " [Docena]" : item.tier === "paquete" ? " [Paquete]" : "";
+    const tierBadge = item.tier === "docena" ? " [Mayor]" : item.tier === "paquete" ? " [Paquete]" : "";
     text += `*_${item.quantity}x - ${item.product_name} ($${item.subtotal_usd.toFixed(2)})_*\n`;
     text += `Talla: ${item.size}${item.color ? ` | Color: ${item.color}` : ""}${tierBadge}\n\n`;
   });
@@ -274,7 +274,7 @@ export function parseWhatsAppTextPayload(text: string): Partial<WhatsAppOrderPay
 
   // Parse items from PideFácil style text:
   // *_6x - Corazón Patilla Negro Damas ($30.00)_*
-  // Talla: UNIQUE | Color: Negro [Docena]
+  // Talla: UNIQUE | Color: Negro [Mayor]
   const itemRegex = /\*\_(\d+)x\s*-\s*([^(]+)\s*\(\$([0-9.]+)\)_\*\s*\n\s*Talla:\s*([^|\n]+)(?:\|\s*Color:\s*([^[\n]+))?(?:\[(.*?)\])?/gi;
 
   let match;
@@ -287,7 +287,7 @@ export function parseWhatsAppTextPayload(text: string): Partial<WhatsAppOrderPay
     const tierRaw = match[6] ? match[6].trim().toLowerCase() : "detal";
     const unit_price_usd = quantity > 0 ? Number((subtotal_usd / quantity).toFixed(2)) : subtotal_usd;
 
-    const tier: "detal" | "paquete" | "docena" = tierRaw.includes("docena")
+    const tier: "detal" | "paquete" | "docena" = (tierRaw.includes("mayor") || tierRaw.includes("docena"))
       ? "docena"
       : tierRaw.includes("paquete")
       ? "paquete"
@@ -316,7 +316,7 @@ export function parseWhatsAppTextPayload(text: string): Partial<WhatsAppOrderPay
       const unit_price_usd = parseFloat(match[6]) || 0;
       const subtotal_usd = parseFloat(match[7]) || (quantity * unit_price_usd);
 
-      const tier: "detal" | "paquete" | "docena" = tierRaw.includes("docena")
+      const tier: "detal" | "paquete" | "docena" = (tierRaw.includes("mayor") || tierRaw.includes("docena"))
         ? "docena"
         : tierRaw.includes("paquete")
         ? "paquete"

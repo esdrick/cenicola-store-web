@@ -356,7 +356,7 @@ export default function ProductDetailPage() {
                 </span>
 
                 <p className="mt-1 text-[9px] sm:text-[10px] text-slate-400 font-normal uppercase tracking-wider">
-                  Lleva a partir de 3 o más piezas combinables y consigue un descuento por paquete y por docena
+                  Lleva a partir de 3 o más piezas combinables y consigue un descuento por paquete y al mayor
                 </p>
               </div>
             </div>
