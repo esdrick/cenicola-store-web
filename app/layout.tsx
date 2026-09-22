@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { WishlistProvider } from "@/components/store/WishlistContext";
+import { CartProvider } from "@/components/store/CartContext";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -76,7 +77,9 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
         <WishlistProvider>
-          {children}
+          <CartProvider>
+            {children}
+          </CartProvider>
         </WishlistProvider>
       </body>
     </html>

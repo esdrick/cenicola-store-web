@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import StoreNavbar from "@/components/store/StoreNavbar";
 import StoreFooter from "@/components/store/StoreFooter";
 import SearchDrawer from "@/components/store/SearchDrawer";
-import CartDrawer, { type CartItemType } from "@/components/store/CartDrawer";
+import CartDrawer from "@/components/store/CartDrawer";
 import OrderSuccessView, { type OrderSuccessData } from "@/components/store/OrderSuccessView";
 import {
   ArrowLeft,
@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { getVolumeTierInfo, getWhatsAppUrl, isDivisasPaymentMethod } from "@/lib/whatsapp";
 import { STORE_OFFICES, PICKUP_ESTIMATED_TIME, type StoreOfficeKey } from "@/lib/store-locations";
+import { useCart } from "@/components/store/CartContext";
 
 interface BankAccountInfo {
   id: string;
@@ -42,7 +43,18 @@ interface BankAccountInfo {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const [cart, setCart] = useState<CartItemType[]>([]);
+  const {
+    cart,
+    updateQuantity: handleUpdateQuantity,
+    removeFromCart: handleRemoveItem,
+    clearCart,
+    hasOutOfStock,
+    hasInsufficientStock,
+    removeOutOfStockItems,
+    adjustQuantitiesToAvailableStock,
+    getItemStockStatus,
+    validateStock,
+  } = useCart();
   const [bcvRate, setBcvRate] = useState<number>(1);
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
@@ -121,14 +133,9 @@ export default function CheckoutPage() {
   const [orderError, setOrderError] = useState("");
   const [completedOrderData, setCompletedOrderData] = useState<OrderSuccessData | null>(null);
 
-  // Load Cart, Check Auth & BCV Rate
+  // Check Auth & BCV Rate, Validate Stock
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("cenicola_cart");
-      if (saved) setCart(JSON.parse(saved));
-    } catch {
-      setCart([]);
-    }
+    validateStock();
 
     // Check logged in customer session
     setAuthLoading(true);
@@ -174,32 +181,7 @@ export default function CheckoutPage() {
       })
       .catch(() => null)
       .finally(() => setBanksLoading(false));
-  }, []);
-
-  const saveCart = (newCart: CartItemType[]) => {
-    setCart(newCart);
-    try {
-      localStorage.setItem("cenicola_cart", JSON.stringify(newCart));
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleUpdateQuantity = (variant_id: string, qty: number) => {
-    if (qty <= 0) {
-      handleRemoveItem(variant_id);
-      return;
-    }
-    const updated = cart.map((item) =>
-      item.variant_id === variant_id ? { ...item, quantity: Math.min(qty, item.stock_online) } : item
-    );
-    saveCart(updated);
-  };
-
-  const handleRemoveItem = (variant_id: string) => {
-    const updated = cart.filter((item) => item.variant_id !== variant_id);
-    saveCart(updated);
-  };
+  }, [validateStock]);
 
   // Auth Submission (Login, Register or Forgot Password)
   const handleAuthSubmit = async (e: React.FormEvent) => {
@@ -454,23 +436,36 @@ export default function CheckoutPage() {
     );
 
     const subtotalUsd = tierInfo.effectiveUnitPrice * item.quantity;
+    const stockStatus = getItemStockStatus(item.variant_id);
+    const isOutOfStock =
+      stockStatus?.status === "out_of_stock" ||
+      stockStatus?.status === "inactive" ||
+      stockStatus?.status === "not_found" ||
+      (stockStatus ? stockStatus.available_stock <= 0 : false);
+    const isInsufficientStock =
+      stockStatus?.status === "insufficient_stock" ||
+      (stockStatus && !isOutOfStock ? item.quantity > stockStatus.available_stock : false);
 
     return {
       ...item,
       tierInfo,
       effectiveUnitPrice: tierInfo.effectiveUnitPrice,
       subtotalUsd,
+      stockStatus,
+      isOutOfStock,
+      isInsufficientStock,
     };
   });
 
-  const rawTotalUsd = cartWithTiers.reduce((sum, i) => sum + i.subtotalUsd, 0);
+  const validCartItems = cartWithTiers.filter((i) => !i.isOutOfStock);
+  const rawTotalUsd = validCartItems.reduce((sum, i) => sum + i.subtotalUsd, 0);
   const totalUsd = Math.ceil(rawTotalUsd);
   const totalVes = totalUsd * bcvRate;
 
   // Breakdown metrics for customer transparency (Adjusted so Subtotal - Discounts = Total)
-  const totalRegularBcvUsd = cart.reduce((sum, i) => sum + i.price_usd * i.quantity, 0);
+  const totalRegularBcvUsd = validCartItems.reduce((sum, i) => sum + i.price_usd * i.quantity, 0);
   const totalDivisasDiscountUsd = isDivisasPayment
-    ? cart.reduce((sum, i) => {
+    ? validCartItems.reduce((sum, i) => {
         const divPrice =
           i.price_divisas_usd && i.price_divisas_usd > 0 ? i.price_divisas_usd : i.price_usd;
         return sum + (i.price_usd - divPrice) * i.quantity;
@@ -498,6 +493,16 @@ export default function CheckoutPage() {
     e.preventDefault();
     if (!isAuthenticated) {
       setOrderError("Por favor inicia sesión o regístrate para completar tu pedido.");
+      return;
+    }
+
+    if (hasOutOfStock) {
+      setOrderError("Hay prendas agotadas en tu pedido. Por favor elimínalas para continuar.");
+      return;
+    }
+
+    if (hasInsufficientStock) {
+      setOrderError("Algunas prendas superan el stock disponible. Por favor ajusta las cantidades para continuar.");
       return;
     }
 
@@ -611,8 +616,7 @@ export default function CheckoutPage() {
       });
 
       // Clear local cart
-      localStorage.removeItem("cenicola_cart");
-      setCart([]);
+      clearCart();
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
@@ -625,6 +629,16 @@ export default function CheckoutPage() {
 
   // WhatsApp Order Submission
   const handleSendWhatsApp = () => {
+    if (hasOutOfStock) {
+      alert("Hay prendas agotadas en tu pedido. Por favor elimínalas antes de enviar por WhatsApp.");
+      return;
+    }
+
+    if (hasInsufficientStock) {
+      alert("Algunas prendas superan el stock disponible. Por favor ajusta las cantidades antes de enviar.");
+      return;
+    }
+
     if (!customerName || !phone) {
       alert("Ingresa tu Nombre y Teléfono antes de enviar por WhatsApp.");
       return;
@@ -747,7 +761,7 @@ export default function CheckoutPage() {
             </div>
 
             {/* Global Volume Tier Status Banner in Checkout */}
-            {cart.length > 0 && (
+            {cart.length > 0 && !hasOutOfStock && (
               <div className="bg-slate-50 border border-slate-200 p-3 text-xs text-black flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 rounded-xs">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold uppercase tracking-wider text-[11px] text-black">
@@ -768,53 +782,152 @@ export default function CheckoutPage() {
               </div>
             )}
 
+            {/* Stock Issue Alert Banners */}
+            {hasOutOfStock && (
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xs text-xs space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-black">
+                  Prendas no disponibles
+                </p>
+                <p className="text-slate-500 text-xs leading-relaxed">
+                  Uno o más artículos seleccionados se han agotado. Elimínalos de tu pedido para poder proceder al pago.
+                </p>
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={removeOutOfStockItems}
+                    className="text-[10px] uppercase tracking-widest font-semibold text-black underline hover:opacity-60 transition-opacity cursor-pointer"
+                  >
+                    Eliminar prendas agotadas
+                  </button>
+                  <span className="text-slate-300">•</span>
+                  <button
+                    type="button"
+                    onClick={() => setCartDrawerOpen(true)}
+                    className="text-[10px] uppercase tracking-widest font-medium text-slate-500 hover:text-black transition-colors cursor-pointer"
+                  >
+                    Modificar cesta
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {hasInsufficientStock && !hasOutOfStock && (
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xs text-xs space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-black">
+                  Stock limitado disponible
+                </p>
+                <p className="text-slate-500 text-xs leading-relaxed">
+                  Algunas cantidades superan las unidades disponibles actualmente.
+                </p>
+                <button
+                  type="button"
+                  onClick={adjustQuantitiesToAvailableStock}
+                  className="mt-1 text-[10px] uppercase tracking-widest font-semibold text-black underline hover:opacity-60 transition-opacity cursor-pointer inline-block"
+                >
+                  Ajustar cantidades al máximo
+                </button>
+              </div>
+            )}
+
             {/* Itemized List */}
             <div className="divide-y divide-slate-100">
-              {cartWithTiers.map((item) => (
-                <div key={item.variant_id} className="py-3.5 flex items-center justify-between gap-4 text-xs">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="relative w-14 aspect-[3/4] bg-slate-100 shrink-0 overflow-hidden border border-slate-200 rounded-xs">
-                      <SafeImage src={item.photo} alt={item.name} fill sizes="60px" className="object-cover" />
-                    </div>
+              {cartWithTiers.map((item) => {
+                const isOutOfStock = item.isOutOfStock;
+                const isInsufficientStock = item.isInsufficientStock;
+                const availableStock = item.stockStatus ? item.stockStatus.available_stock : item.stock_online;
 
-                    <div className="min-w-0 space-y-1">
-                      <p className="font-semibold text-black uppercase tracking-wider line-clamp-1">
-                        {item.name}
-                      </p>
-                      <p className="text-[10px] text-slate-500 uppercase">
-                        TALLA: <span className="font-semibold text-black">{item.size}</span>
-                        {item.color && ` | COLOR: ${item.color}`}
-                      </p>
-                      <div className="text-[10px] text-slate-600 font-normal flex items-center gap-1.5 flex-wrap">
-                        <span>Cantidad: <strong className="text-black">{item.quantity}</strong></span>
-                        <span>x</span>
-                        <span className="font-bold text-black">${item.effectiveUnitPrice.toFixed(2)} c/u</span>
-                        {item.effectiveUnitPrice < item.price_usd && (
-                          <span className="text-slate-400 line-through text-[9px]">
-                            ${item.price_usd.toFixed(2)}
-                          </span>
+                return (
+                  <div
+                    key={item.variant_id}
+                    className={`py-3.5 flex items-center justify-between gap-4 text-xs transition-all ${
+                      isOutOfStock ? "opacity-50" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="relative w-14 aspect-[3/4] bg-slate-100 shrink-0 overflow-hidden border border-slate-200 rounded-xs">
+                        <SafeImage
+                          src={item.photo}
+                          alt={item.name}
+                          fill
+                          sizes="60px"
+                          className={`object-cover ${isOutOfStock ? "grayscale contrast-75" : ""}`}
+                        />
+                        {isOutOfStock && (
+                          <div className="absolute inset-x-0 bottom-0 bg-black/85 text-white text-[7.5px] font-medium tracking-widest text-center py-0.5 uppercase">
+                            AGOTADO
+                          </div>
                         )}
-                        {item.tierInfo.tier !== "detal" && (
-                          <span className="text-[9px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 uppercase tracking-wider rounded-xs">
-                            {item.tierInfo.badgeLabel}
-                          </span>
+                      </div>
+
+                      <div className="min-w-0 space-y-1">
+                        <p className={`font-semibold uppercase tracking-wider line-clamp-1 ${isOutOfStock ? "text-slate-400 line-through" : "text-black"}`}>
+                          {item.name}
+                        </p>
+                        <p className="text-[10px] text-slate-500 uppercase">
+                          TALLA: <span className="font-semibold text-black">{item.size}</span>
+                          {item.color && ` | COLOR: ${item.color}`}
+                        </p>
+
+                        {isOutOfStock ? (
+                          <div className="flex items-center gap-2 pt-0.5">
+                            <span className="text-[10px] font-normal text-slate-400 uppercase tracking-wider">
+                              Agotado temporalmente
+                            </span>
+                            <span className="text-slate-300">•</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(item.variant_id)}
+                              className="text-[10px] text-slate-500 hover:text-black underline uppercase tracking-wider cursor-pointer font-normal"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-slate-600 font-normal flex items-center gap-1.5 flex-wrap">
+                            <span>Cantidad: <strong className="text-black">{item.quantity}</strong></span>
+                            <span>x</span>
+                            <span className="font-bold text-black">${item.effectiveUnitPrice.toFixed(2)} c/u</span>
+                            {item.effectiveUnitPrice < item.price_usd && (
+                              <span className="text-slate-400 line-through text-[9px]">
+                                ${item.price_usd.toFixed(2)}
+                              </span>
+                            )}
+                            {item.tierInfo.tier !== "detal" && (
+                              <span className="text-[9px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 uppercase tracking-wider rounded-xs">
+                                {item.tierInfo.badgeLabel}
+                              </span>
+                            )}
+                            {isInsufficientStock && (
+                              <span className="text-[9px] font-normal text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.2 uppercase tracking-wider rounded-xs">
+                                Solo {availableStock} disp.
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
-                  </div>
 
-                  <div className="text-right shrink-0 space-y-0.5">
-                    <span className="font-bold text-black text-sm block">
-                      ${item.subtotalUsd.toFixed(2)}
-                    </span>
-                    {item.effectiveUnitPrice < item.price_usd && (
-                      <span className="text-[10px] text-slate-400 line-through block">
-                        ${(item.price_usd * item.quantity).toFixed(2)}
-                      </span>
-                    )}
+                    <div className="text-right shrink-0 space-y-0.5">
+                      {isOutOfStock ? (
+                        <span className="text-xs font-normal text-slate-400 uppercase tracking-wider block">
+                          Sin stock
+                        </span>
+                      ) : (
+                        <>
+                          <span className="font-bold text-black text-sm block">
+                            ${item.subtotalUsd.toFixed(2)}
+                          </span>
+                          {item.effectiveUnitPrice < item.price_usd && (
+                            <span className="text-[10px] text-slate-400 line-through block">
+                              ${(item.price_usd * item.quantity).toFixed(2)}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Price Totals & Detailed Discount Breakdown (USD & VES) */}
@@ -1767,27 +1880,57 @@ export default function CheckoutPage() {
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={isSubmittingOrder || !isAuthenticated}
-              className={`w-full py-4 px-6 text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all rounded-xs font-semibold ${
-                isAuthenticated
-                  ? "bg-black hover:bg-slate-800 text-white cursor-pointer shadow-sm hover:shadow active:scale-[0.99]"
-                  : "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
-              }`}
-            >
-              {isSubmittingOrder ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  <span>Procesando Pedido...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4 text-white" />
+            {hasOutOfStock ? (
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  disabled
+                  className="w-full py-4 px-6 text-xs uppercase tracking-widest flex items-center justify-center gap-2 rounded-xs font-semibold bg-slate-200 text-slate-400 cursor-not-allowed select-none"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-slate-400" />
                   <span>Completar pedido</span>
-                </>
-              )}
-            </button>
+                </button>
+                <p className="text-[10px] text-slate-400 text-center uppercase tracking-wider font-normal">
+                  Elimina las prendas agotadas en el resumen para continuar
+                </p>
+              </div>
+            ) : hasInsufficientStock ? (
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  disabled
+                  className="w-full py-4 px-6 text-xs uppercase tracking-widest flex items-center justify-center gap-2 rounded-xs font-semibold bg-slate-200 text-slate-400 cursor-not-allowed select-none"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-slate-400" />
+                  <span>Completar pedido</span>
+                </button>
+                <p className="text-[10px] text-slate-400 text-center uppercase tracking-wider font-normal">
+                  Ajusta las cantidades disponibles en el resumen para continuar
+                </p>
+              </div>
+            ) : (
+              <button
+                type="submit"
+                disabled={isSubmittingOrder || !isAuthenticated}
+                className={`w-full py-4 px-6 text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all rounded-xs font-semibold ${
+                  isAuthenticated
+                    ? "bg-black hover:bg-slate-800 text-white cursor-pointer shadow-sm hover:shadow active:scale-[0.99]"
+                    : "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
+                }`}
+              >
+                {isSubmittingOrder ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Procesando Pedido...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-white" />
+                    <span>Completar pedido</span>
+                  </>
+                )}
+              </button>
+            )}
 
             {/* SEPARADOR "o si prefieres:" */}
             <div className="relative flex py-1 items-center justify-center">
