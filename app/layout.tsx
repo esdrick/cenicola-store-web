@@ -15,7 +15,7 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://qfranelas.com";
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.quefranelas.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),

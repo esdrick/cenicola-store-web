@@ -223,7 +223,7 @@ export function formatWhatsAppOrderMessage(payload: WhatsAppOrderPayload): strin
   }
 
   text += `\n${EMOJI.pointUp} Por favor envía este mensaje y te atenderemos lo antes posible\n\n`;
-  text += `${EMOJI.globe} https://qfranelas.com`;
+  text += `${EMOJI.globe} https://www.quefranelas.com`;
 
   return text;
 }
