@@ -18,6 +18,7 @@ type ProductType = {
   name: string;
   type: string;
   color?: string | null;
+  available_colors?: Array<{ id: string; color: string | null }>;
   description?: string | null;
   photos: string[];
   price_usd: number;

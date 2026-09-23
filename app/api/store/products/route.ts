@@ -174,6 +174,40 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Query sibling colors for all matched products
+    const productNames = Array.from(new Set(products.map((p) => p.name.trim())));
+    const siblingProducts = productNames.length > 0
+      ? await prisma.product.findMany({
+          where: {
+            name: { in: productNames, mode: "insensitive" },
+            is_active: true,
+            variants: {
+              some: {
+                is_active: true,
+                stock_online: { gt: 0 },
+              },
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+            color: true,
+          },
+        })
+      : [];
+
+    // Map by normalized product name
+    const colorsByNameMap = new Map<string, Array<{ id: string; color: string }>>();
+    for (const sib of siblingProducts) {
+      if (!sib.color) continue;
+      const key = sib.name.trim().toLowerCase();
+      const list = colorsByNameMap.get(key) || [];
+      if (!list.some((item) => item.color.toLowerCase() === sib.color!.toLowerCase())) {
+        list.push({ id: sib.id, color: sib.color });
+      }
+      colorsByNameMap.set(key, list);
+    }
+
     const data = products.map((p) => {
       const minPriceUsd = Math.min(...p.variants.map((v) => Number(v.price_bcv)));
       const minPriceDivisasUsd = Math.min(
@@ -188,12 +222,15 @@ export async function GET(request: NextRequest) {
           : Number((minPriceUsd * 0.7).toFixed(2));
       const minPriceVes = minPriceUsd * bcvRate;
       const totalStockOnline = p.variants.reduce((sum, v) => sum + v.stock_online, 0);
+      const nameKey = p.name.trim().toLowerCase();
+      const availableColors = colorsByNameMap.get(nameKey) || (p.color ? [{ id: p.id, color: p.color }] : []);
 
       return {
         id: p.id,
         name: p.name,
         type: p.type,
         color: p.color,
+        available_colors: availableColors,
         description: p.description,
         photos: p.photos,
         price_usd: minPriceUsd,

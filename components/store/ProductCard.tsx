@@ -4,12 +4,14 @@ import Link from "next/link";
 import { ArrowRight, Bookmark, Plus, ShoppingBag } from "lucide-react";
 import { useWishlist } from "./WishlistContext";
 import SafeImage from "@/components/ui/SafeImage";
+import { getColorHex, isLightColor } from "@/lib/colors";
 
 type ProductCardProps = {
   id: string;
   name: string;
   type: string;
   color?: string | null;
+  available_colors?: Array<{ id: string; color: string | null }>;
   photos: string[];
   price_usd: number;
   price_ves: number;
@@ -31,25 +33,6 @@ type ProductCardProps = {
   onQuickAdd?: (product: ProductCardProps) => void;
 };
 
-// Simple color hex dictionary for Lefties swatches
-const COLOR_HEX_MAP: Record<string, string> = {
-  negro: "#000000",
-  blanco: "#FFFFFF",
-  azul: "#2563EB",
-  rojo: "#DC2626",
-  verde: "#16A34A",
-  amarillo: "#EAB308",
-  marron: "#854D0E",
-  marrón: "#854D0E",
-  beige: "#E5E7EB",
-  gris: "#6B7280",
-  rosa: "#EC4899",
-  rosado: "#EC4899",
-  morado: "#9333EA",
-  fucsia: "#D946EF",
-  naranja: "#F97316",
-};
-
 const formatPrice = (val: number) => {
   if (val === undefined || val === null || isNaN(val)) return "0.00";
   return val.toFixed(2);
@@ -61,6 +44,7 @@ export default function ProductCard(props: ProductCardProps) {
     name,
     type,
     color,
+    available_colors = [],
     photos,
     price_usd,
     price_ves,
@@ -102,8 +86,7 @@ export default function ProductCard(props: ProductCardProps) {
     }
   };
 
-  const colorKey = (color || "").toLowerCase().trim();
-  const hexBg = COLOR_HEX_MAP[colorKey] || (colorKey ? colorKey : "#000000");
+  const hexBg = getColorHex(color);
 
   // 1. REAL COMPACT LIST VIEW MODE (Small thumbnail, clean row item)
   if (viewMode === "list") {
@@ -137,13 +120,27 @@ export default function ProductCard(props: ProductCardProps) {
           {/* Title, Color Swatch & Sizes */}
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex items-center gap-1.5 min-w-0">
-              {color && (
+              {available_colors && available_colors.length > 1 ? (
+                <div className="flex items-center gap-1 shrink-0">
+                  {available_colors.slice(0, 3).map((cObj) => (
+                    <span
+                      key={cObj.id + (cObj.color || "")}
+                      className="w-2.5 h-2.5 rounded-full inline-block border border-slate-300 shrink-0"
+                      style={{ backgroundColor: getColorHex(cObj.color) }}
+                      title={cObj.color || "Color"}
+                    />
+                  ))}
+                  <span className="text-[9px] text-slate-500 font-medium">
+                    +{available_colors.length} col.
+                  </span>
+                </div>
+              ) : color ? (
                 <span
-                  className="w-2.5 h-2.5 border border-slate-300 rounded-xs inline-block shrink-0"
+                  className="w-2.5 h-2.5 rounded-full border border-slate-300 inline-block shrink-0"
                   style={{ backgroundColor: hexBg }}
                   title={color}
                 />
-              )}
+              ) : null}
               <Link
                 href={`/producto/${id}`}
                 className="font-semibold text-black text-xs sm:text-sm uppercase tracking-wider hover:opacity-60 transition-opacity truncate block min-w-0"
@@ -303,15 +300,50 @@ export default function ProductCard(props: ProductCardProps) {
 
       {/* Lefties Minimalist Text Details */}
       <div className="pt-2.5 pb-2 flex flex-col justify-between flex-1 space-y-1">
-        {/* Swatch & Bookmark Row (Exact Lefties Style) */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            {color ? (
-              <span
-                className="w-3.5 h-3.5 border border-slate-300 rounded-xs inline-block"
-                style={{ backgroundColor: hexBg }}
-                title={color}
-              />
+        {/* Swatch & Bookmark Row (Lefties / Mango Style with multiple color variants support) */}
+        <div className="flex items-center justify-between min-h-[22px]">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {available_colors && available_colors.length > 1 ? (
+              <>
+                <div className="flex items-center gap-1">
+                  {available_colors.slice(0, 4).map((cObj) => {
+                    const cHex = getColorHex(cObj.color);
+                    const isLight = isLightColor(cObj.color);
+                    const isCurrent = (cObj.color || "").toLowerCase() === (color || "").toLowerCase();
+                    return (
+                      <span
+                        key={cObj.id + (cObj.color || "")}
+                        className={`w-3 h-3 rounded-full inline-block border transition-transform ${
+                          isCurrent ? "scale-110 ring-1 ring-black/70" : ""
+                        } ${isLight ? "border-slate-300" : "border-slate-200"}`}
+                        style={{ backgroundColor: cHex }}
+                        title={cObj.color || "Color"}
+                      />
+                    );
+                  })}
+                  {available_colors.length > 4 && (
+                    <span className="text-[8.5px] text-slate-500 font-semibold">
+                      +{available_colors.length - 4}
+                    </span>
+                  )}
+                </div>
+                <span className={`text-slate-400 font-normal uppercase tracking-wider ${isCompact ? "text-[8px]" : "text-[9px]"}`}>
+                  {available_colors.length} col.
+                </span>
+              </>
+            ) : color ? (
+              <div className="flex items-center gap-1">
+                <span
+                  className={`w-3.5 h-3.5 border rounded-xs inline-block ${
+                    isLightColor(color) ? "border-slate-300" : "border-slate-200"
+                  }`}
+                  style={{ backgroundColor: hexBg }}
+                  title={color}
+                />
+                <span className={`text-slate-400 font-normal uppercase tracking-wider ${isCompact ? "text-[8px]" : "text-[9px]"}`}>
+                  {color}
+                </span>
+              </div>
             ) : (
               <span className="w-3.5 h-3.5 border border-slate-300 bg-slate-900 rounded-xs inline-block" />
             )}
@@ -319,7 +351,7 @@ export default function ProductCard(props: ProductCardProps) {
 
           <button
             onClick={handleWishlistClick}
-            className="text-slate-700 hover:text-black transition-colors p-0.5"
+            className="text-slate-700 hover:text-black transition-colors p-0.5 shrink-0"
             title={isFavorite ? "Eliminar de lista de deseos" : "Agregar a lista de deseos"}
             aria-label="Guardar en favoritos"
           >

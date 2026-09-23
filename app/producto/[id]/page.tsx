@@ -14,6 +14,7 @@ import QuickAddModal, { type QuickAddProduct, type QuickAddProductVariant } from
 import { useWishlist } from "@/components/store/WishlistContext";
 import ProductDetailSkeleton from "@/components/store/ProductDetailSkeleton";
 import { ArrowLeft, AlertCircle, Bookmark, ShoppingBag, Tag } from "lucide-react";
+import { getColorHex, isLightColor } from "@/lib/colors";
 
 type VariantType = {
   id: string;
@@ -29,7 +30,7 @@ type VariantType = {
   price_ves: number;
 };
 
-type ProductDetailType = {
+type ProductSiblingType = {
   id: string;
   name: string;
   type: string;
@@ -40,8 +41,13 @@ type ProductDetailType = {
   price_divisas_usd?: number;
   price_mayor_usd?: number;
   price_ves: number;
-  bcv_rate: number;
+  total_stock_online?: number;
   variants: VariantType[];
+};
+
+type ProductDetailType = ProductSiblingType & {
+  bcv_rate: number;
+  siblings?: ProductSiblingType[];
 };
 
 type RelatedProductType = {
@@ -49,29 +55,12 @@ type RelatedProductType = {
   name: string;
   type: string;
   color?: string | null;
+  available_colors?: Array<{ id: string; color: string | null }>;
   photos: string[];
   price_usd: number;
   price_ves: number;
   total_stock_online: number;
   variants: Array<{ id: string; size: string; stock_online: number }>;
-};
-
-const COLOR_HEX_MAP: Record<string, string> = {
-  negro: "#000000",
-  blanco: "#FFFFFF",
-  azul: "#2563EB",
-  rojo: "#DC2626",
-  verde: "#16A34A",
-  amarillo: "#EAB308",
-  marron: "#854D0E",
-  marrón: "#854D0E",
-  beige: "#E5E7EB",
-  gris: "#6B7280",
-  rosa: "#EC4899",
-  rosado: "#EC4899",
-  morado: "#9333EA",
-  fucsia: "#D946EF",
-  naranja: "#F97316",
 };
 
 export default function ProductDetailPage() {
@@ -142,6 +131,33 @@ export default function ProductDetailPage() {
       })
       .catch(() => setLoading(false));
   }, [productId]);
+
+  const handleSelectColor = (sibling: ProductSiblingType) => {
+    if (!product || sibling.id === product.id) return;
+
+    const uniquePhotos = Array.from(new Set((sibling.photos || []) as string[]));
+    setProduct((prev) => (prev ? { ...sibling, bcv_rate: prev.bcv_rate, siblings: prev.siblings } : null));
+
+    if (uniquePhotos.length > 0) {
+      setSelectedPhoto(uniquePhotos[0]);
+    } else {
+      setSelectedPhoto("");
+    }
+
+    const available = sibling.variants?.find((v: VariantType) => v.stock_online > 0);
+    if (available) {
+      setSelectedVariant(available);
+    } else if (sibling.variants && sibling.variants.length > 0) {
+      setSelectedVariant(sibling.variants[0]);
+    } else {
+      setSelectedVariant(null);
+    }
+
+    // Update browser URL without full reload
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `/producto/${sibling.id}`);
+    }
+  };
 
   const handleOpenQuickAddModal = (prodToModal?: QuickAddProduct) => {
     const target = prodToModal || (product as QuickAddProduct | null);
@@ -236,8 +252,7 @@ export default function ProductDetailPage() {
   const divisasSavings = bcvPriceUsd - divisasPriceUsd;
 
   const isFavorite = isInWishlist(product.id);
-  const colorKey = (product.color || "").toLowerCase().trim();
-  const hexBg = COLOR_HEX_MAP[colorKey] || (colorKey ? colorKey : "#000000");
+  const hexBg = getColorHex(product.color);
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans text-black">
@@ -360,6 +375,63 @@ export default function ProductDetailPage() {
                 </p>
               </div>
             </div>
+
+            {/* Color Selector */}
+            {product.siblings && product.siblings.length > 0 && (
+              <div className="pt-3 border-t border-slate-100 space-y-2.5">
+                <div className="flex justify-between items-center text-[11px] font-normal">
+                  <span className="uppercase tracking-wider text-black">
+                    Color: <strong className="font-semibold">{product.color || "Único"}</strong>
+                  </span>
+                  {product.siblings.length > 1 && (
+                    <span className="text-[10px] text-slate-400 font-normal uppercase tracking-wider">
+                      {product.siblings.length} colores disponibles
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2.5 flex-wrap pt-0.5">
+                  {product.siblings.map((sib) => {
+                    const isSelected = sib.id === product.id;
+                    const sibColor = sib.color || "Color";
+                    const sibHex = getColorHex(sib.color);
+                    const isLight = isLightColor(sib.color);
+                    const isOutStock = (sib.total_stock_online ?? 0) <= 0;
+
+                    return (
+                      <button
+                        key={sib.id}
+                        type="button"
+                        onClick={() => handleSelectColor(sib)}
+                        className={`group relative p-0.5 rounded-full transition-all cursor-pointer flex items-center justify-center ${
+                          isSelected
+                            ? "ring-2 ring-black ring-offset-2 scale-105"
+                            : isOutStock
+                            ? "opacity-40 hover:opacity-80 ring-1 ring-slate-200 ring-offset-1"
+                            : "hover:scale-110 hover:ring-1 hover:ring-slate-400 hover:ring-offset-1"
+                        }`}
+                        title={isOutStock ? `${sibColor} (Sin existencias)` : sibColor}
+                        aria-label={sibColor}
+                      >
+                        {/* Circular Color Swatch */}
+                        <span
+                          className={`w-6 h-6 rounded-full block relative overflow-hidden transition-all ${
+                            isLight ? "border border-slate-300" : "border border-black/10"
+                          }`}
+                          style={{ backgroundColor: sibHex }}
+                        >
+                          {isOutStock && (
+                            <span className="absolute inset-0 flex items-center justify-center">
+                              <span className="w-full h-px bg-slate-500 rotate-45 transform block" />
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Size Selector */}
             <div className="pt-3 border-t border-slate-100 space-y-2.5">

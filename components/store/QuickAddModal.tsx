@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import SafeImage from "@/components/ui/SafeImage";
 import { X, Minus, Plus, ShoppingBag, ArrowRight, Check, ShoppingCart } from "lucide-react";
 import { getVolumeTierInfo } from "@/lib/whatsapp";
+import { getColorHex } from "@/lib/colors";
 
 export type QuickAddProductVariant = {
   id: string;
@@ -41,24 +42,6 @@ type QuickAddModalProps = {
   bcvRate?: number;
 };
 
-const COLOR_HEX_MAP: Record<string, string> = {
-  negro: "#000000",
-  blanco: "#FFFFFF",
-  azul: "#2563EB",
-  rojo: "#DC2626",
-  verde: "#16A34A",
-  amarillo: "#EAB308",
-  marron: "#854D0E",
-  marrón: "#854D0E",
-  beige: "#E5E7EB",
-  gris: "#6B7280",
-  rosa: "#EC4899",
-  rosado: "#EC4899",
-  morado: "#9333EA",
-  fucsia: "#D946EF",
-  naranja: "#F97316",
-};
-
 export default function QuickAddModal({
   isOpen,
   onClose,
@@ -86,8 +69,7 @@ export default function QuickAddModal({
   if (!isOpen || !product) return null;
 
   const mainPhoto = product.photos && product.photos[0] ? product.photos[0] : "";
-  const colorKey = (product.color || "").toLowerCase().trim();
-  const hexBg = COLOR_HEX_MAP[colorKey] || (colorKey ? colorKey : "#000000");
+  const hexBg = getColorHex(product.color);
 
   const basePriceUsd = selectedVariant?.price_usd ?? product.price_usd;
 
