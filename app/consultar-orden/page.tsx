@@ -8,9 +8,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import StoreNavbar from "@/components/store/StoreNavbar";
 import StoreFooter from "@/components/store/StoreFooter";
 import SearchDrawer from "@/components/store/SearchDrawer";
-import CartDrawer, { type CartItemType } from "@/components/store/CartDrawer";
+import CartDrawer from "@/components/store/CartDrawer";
 import WishlistDrawer from "@/components/store/WishlistDrawer";
 import { useWishlist } from "@/components/store/WishlistContext";
+import { useCart } from "@/components/store/CartContext";
 import OrderProgressStepper from "@/components/store/OrderProgressStepper";
 import {
   ArrowLeft,
@@ -88,12 +89,11 @@ function ConsultarOrdenContent() {
   } | null>(null);
 
   // Navbar, Carrito, Búsqueda y Lista de Deseos
-  const [cart, setCart] = useState<CartItemType[]>([]);
-  const [cartOpen, setCartOpen] = useState(false);
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [bcvRate, setBcvRate] = useState<number>(1);
   const { wishlistCount } = useWishlist();
+  const { cartCount, isCartOpen, openCart, closeCart } = useCart();
 
   const performSearch = (searchEmail: string, searchOrderNum: string) => {
     if (!searchEmail.trim() || !searchOrderNum.trim()) {
@@ -135,13 +135,6 @@ function ConsultarOrdenContent() {
   };
 
   useEffect(() => {
-    try {
-      const savedCart = localStorage.getItem("cenicola_cart");
-      if (savedCart) setCart(JSON.parse(savedCart));
-    } catch (e) {
-      console.error("Error loading cart:", e);
-    }
-
     fetch("/api/store/products")
       .then((res) => res.json())
       .then((data) => {
@@ -155,18 +148,6 @@ function ConsultarOrdenContent() {
       performSearch(paramEmail.trim(), paramOrder.trim());
     }
   }, [paramOrder, paramEmail]);
-
-  const handleUpdateQuantity = (variant_id: string, qty: number) => {
-    const updated = cart.map((i) => (i.variant_id === variant_id ? { ...i, quantity: qty } : i)).filter((i) => i.quantity > 0);
-    setCart(updated);
-    localStorage.setItem("cenicola_cart", JSON.stringify(updated));
-  };
-
-  const handleRemoveItem = (variant_id: string) => {
-    const updated = cart.filter((i) => i.variant_id !== variant_id);
-    setCart(updated);
-    localStorage.setItem("cenicola_cart", JSON.stringify(updated));
-  };
 
   const toggleOrderExpand = (id: string) => {
     setExpandedOrderIds((prev) =>
@@ -245,8 +226,8 @@ function ConsultarOrdenContent() {
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans text-black">
       <StoreNavbar
-        cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
-        onOpenCart={() => setCartOpen(true)}
+        cartCount={cartCount}
+        onOpenCart={openCart}
         onOpenWishlist={() => setWishlistOpen(true)}
         onOpenSearch={() => setSearchDrawerOpen(true)}
         wishlistCount={wishlistCount}
@@ -492,11 +473,8 @@ function ConsultarOrdenContent() {
       />
 
       <CartDrawer
-        isOpen={cartOpen}
-        onClose={() => setCartOpen(false)}
-        items={cart}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveItem}
+        isOpen={isCartOpen}
+        onClose={closeCart}
         bcvRate={bcvRate}
       />
 

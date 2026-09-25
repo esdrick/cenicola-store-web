@@ -186,11 +186,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setCart((prev) => {
       const idx = prev.findIndex((i) => i.variant_id === newItem.variant_id);
       if (idx >= 0) {
+        const maxStock = newItem.stock_online ?? prev[idx].stock_online ?? 999;
         return prev.map((item, i) =>
           i === idx
             ? {
                 ...item,
-                quantity: Math.min(item.quantity + newItem.quantity, item.stock_online || 999),
+                ...newItem,
+                quantity: Math.min(item.quantity + newItem.quantity, maxStock),
               }
             : item
         );

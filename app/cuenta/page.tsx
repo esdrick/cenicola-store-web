@@ -8,9 +8,10 @@ import StoreNavbar from "@/components/store/StoreNavbar";
 import StoreFooter from "@/components/store/StoreFooter";
 import SafeImage from "@/components/ui/SafeImage";
 import SearchDrawer from "@/components/store/SearchDrawer";
-import CartDrawer, { type CartItemType } from "@/components/store/CartDrawer";
+import CartDrawer from "@/components/store/CartDrawer";
 import WishlistDrawer from "@/components/store/WishlistDrawer";
 import { useWishlist } from "@/components/store/WishlistContext";
+import { useCart } from "@/components/store/CartContext";
 import { User, Package, LogOut, Loader2, Truck, Clock, XCircle, ArrowLeft, KeyRound, ChevronDown, ChevronUp, Upload, AlertCircle, CheckCircle2, X } from "lucide-react";
 import OrderProgressStepper from "@/components/store/OrderProgressStepper";
 import ReuploadPaymentModal from "@/components/store/ReuploadPaymentModal";
@@ -111,11 +112,10 @@ function AccountContent() {
   };
 
   // Estados para Navbar, Carrito, Búsqueda y Lista de Deseos
-  const [cart, setCart] = useState<CartItemType[]>([]);
-  const [cartOpen, setCartOpen] = useState(false);
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const { wishlistCount } = useWishlist();
+  const { cartCount, isCartOpen, openCart, closeCart } = useCart();
 
   // Modo no-autenticado: "login" | "register" | "forgot"
   const [unauthMode, setUnauthMode] = useState<"login" | "register" | "forgot">("login");
@@ -215,29 +215,7 @@ function AccountContent() {
 
   useEffect(() => {
     fetchProfileAndOrders();
-    loadLocalCartAndWishlist();
   }, []);
-
-  const loadLocalCartAndWishlist = () => {
-    try {
-      const savedCart = localStorage.getItem("cenicola_cart");
-      if (savedCart) setCart(JSON.parse(savedCart));
-    } catch (e) {
-      console.error("Error loading cart:", e);
-    }
-  };
-
-  const handleUpdateQuantity = (variant_id: string, qty: number) => {
-    const updated = cart.map((i) => (i.variant_id === variant_id ? { ...i, quantity: qty } : i)).filter((i) => i.quantity > 0);
-    setCart(updated);
-    localStorage.setItem("cenicola_cart", JSON.stringify(updated));
-  };
-
-  const handleRemoveItem = (variant_id: string) => {
-    const updated = cart.filter((i) => i.variant_id !== variant_id);
-    setCart(updated);
-    localStorage.setItem("cenicola_cart", JSON.stringify(updated));
-  };
 
   const fetchProfileAndOrders = async () => {
     setLoading(true);
@@ -507,8 +485,8 @@ function AccountContent() {
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans text-black">
       <StoreNavbar
-        cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
-        onOpenCart={() => setCartOpen(true)}
+        cartCount={cartCount}
+        onOpenCart={openCart}
         onOpenWishlist={() => setWishlistOpen(true)}
         onOpenSearch={() => setSearchDrawerOpen(true)}
         wishlistCount={wishlistCount}
@@ -1471,11 +1449,8 @@ function AccountContent() {
       />
 
       <CartDrawer
-        isOpen={cartOpen}
-        onClose={() => setCartOpen(false)}
-        items={cart}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveItem}
+        isOpen={isCartOpen}
+        onClose={closeCart}
         bcvRate={bcvRate}
       />
 

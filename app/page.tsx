@@ -7,11 +7,12 @@ import { useRouter } from "next/navigation";
 import StoreNavbar from "@/components/store/StoreNavbar";
 import StoreFooter from "@/components/store/StoreFooter";
 import ProductCard from "@/components/store/ProductCard";
-import CartDrawer, { type CartItemType } from "@/components/store/CartDrawer";
+import CartDrawer from "@/components/store/CartDrawer";
 import WishlistDrawer from "@/components/store/WishlistDrawer";
 import SearchDrawer from "@/components/store/SearchDrawer";
 import QuickAddModal, { type QuickAddProduct, type QuickAddProductVariant } from "@/components/store/QuickAddModal";
 import { useWishlist } from "@/components/store/WishlistContext";
+import { useCart } from "@/components/store/CartContext";
 import { ArrowRight, ShoppingBag } from "lucide-react";
 
 type ProductType = {
@@ -36,12 +37,12 @@ export default function StoreHomePage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [bcvRate, setBcvRate] = useState<number>(1);
   const [loading, setLoading] = useState(true);
-  const [cartOpen, setCartOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
   const [quickAddModalOpen, setQuickAddModalOpen] = useState(false);
   const [quickAddTargetProduct, setQuickAddTargetProduct] = useState<QuickAddProduct | null>(null);
-  const [cart, setCart] = useState<CartItemType[]>([]);
+
+  const { cartCount, addToCart, isCartOpen, openCart, closeCart } = useCart();
 
   const handleOpenQuickAddModal = (prod: QuickAddProduct) => {
     setQuickAddTargetProduct(prod);
@@ -51,63 +52,26 @@ export default function StoreHomePage() {
   const handleAddToCartFromModal = (variant: QuickAddProductVariant, qty: number) => {
     if (!quickAddTargetProduct) return;
 
-    const existingIndex = cart.findIndex((i) => i.variant_id === variant.id);
-    let updatedCart: CartItemType[] = [];
-
-    if (existingIndex >= 0) {
-      updatedCart = cart.map((item, idx) =>
-        idx === existingIndex
-          ? {
-              ...item,
-              quantity: Math.min(item.quantity + qty, variant.stock_online),
-            }
-          : item
-      );
-    } else {
-      updatedCart = [
-        ...cart,
-        {
-          variant_id: variant.id,
-          product_id: quickAddTargetProduct.id,
-          name: quickAddTargetProduct.name,
-          size: variant.size,
-          color: quickAddTargetProduct.color,
-          photo: quickAddTargetProduct.photos[0] || null,
-          price_usd: variant.price_usd ?? quickAddTargetProduct.price_usd,
-          price_divisas_usd: variant.price_divisas_usd ?? variant.price_usd ?? quickAddTargetProduct.price_usd,
-          price_bundle_usd: variant.price_bundle_usd,
-          price_bundle_divisas_usd: variant.price_bundle_divisas_usd,
-          price_mayor_usd: variant.price_mayor_usd,
-          price_mayor_divisas_usd: variant.price_mayor_divisas_usd,
-          quantity: qty,
-          stock_online: variant.stock_online,
-        },
-      ];
-    }
-
-    saveCart(updatedCart);
+    addToCart({
+      variant_id: variant.id,
+      product_id: quickAddTargetProduct.id,
+      name: quickAddTargetProduct.name,
+      size: variant.size,
+      color: quickAddTargetProduct.color,
+      photo: quickAddTargetProduct.photos[0] || null,
+      price_usd: variant.price_usd ?? quickAddTargetProduct.price_usd,
+      price_divisas_usd: variant.price_divisas_usd ?? variant.price_usd ?? quickAddTargetProduct.price_usd,
+      price_bundle_usd: variant.price_bundle_usd,
+      price_bundle_divisas_usd: variant.price_bundle_divisas_usd,
+      price_mayor_usd: variant.price_mayor_usd,
+      price_mayor_divisas_usd: variant.price_mayor_divisas_usd,
+      quantity: qty,
+      stock_online: variant.stock_online,
+    });
   };
 
   const { wishlistCount } = useWishlist();
   const [currentSlide, setCurrentSlide] = useState(0);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("cenicola_cart");
-      if (saved) setCart(JSON.parse(saved));
-    } catch {
-      setCart([]);
-    }
-  }, []);
-
-  const saveCart = (newCart: CartItemType[]) => {
-    setCart(newCart);
-    try {
-      localStorage.setItem("cenicola_cart", JSON.stringify(newCart));
-    } catch {
-      // ignore
-    }
-  };
 
   useEffect(() => {
     fetch("/api/store/products")
@@ -138,22 +102,6 @@ export default function StoreHomePage() {
     return () => clearInterval(timer);
   }, [heroBackgrounds.length]);
 
-  const handleUpdateQuantity = (variant_id: string, qty: number) => {
-    if (qty <= 0) {
-      handleRemoveItem(variant_id);
-      return;
-    }
-    const updated = cart.map((item) =>
-      item.variant_id === variant_id ? { ...item, quantity: Math.min(qty, item.stock_online) } : item
-    );
-    saveCart(updated);
-  };
-
-  const handleRemoveItem = (variant_id: string) => {
-    const updated = cart.filter((item) => item.variant_id !== variant_id);
-    saveCart(updated);
-  };
-
   const defaultCategories = ["Mujer", "Hombre", "Niños"];
   const allCategoryPills = (() => {
     const map = new Map<string, string>();
@@ -175,8 +123,8 @@ export default function StoreHomePage() {
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans">
       <StoreNavbar
-        cartCount={cart.reduce((s, i) => s + i.quantity, 0)}
-        onOpenCart={() => setCartOpen(true)}
+        cartCount={cartCount}
+        onOpenCart={openCart}
         onOpenWishlist={() => setWishlistOpen(true)}
         onOpenSearch={() => setSearchDrawerOpen(true)}
         wishlistCount={wishlistCount}
@@ -359,8 +307,8 @@ export default function StoreHomePage() {
           }
         }}
         onGoToCheckout={() => router.push("/checkout")}
-        onOpenCart={() => setCartOpen(true)}
-        cartTotalCount={cart.reduce((s, i) => s + i.quantity, 0)}
+        onOpenCart={openCart}
+        cartTotalCount={cartCount}
         bcvRate={bcvRate}
       />
 
@@ -371,11 +319,8 @@ export default function StoreHomePage() {
       />
 
       <CartDrawer
-        isOpen={cartOpen}
-        onClose={() => setCartOpen(false)}
-        items={cart}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveItem}
+        isOpen={isCartOpen}
+        onClose={closeCart}
         bcvRate={bcvRate}
       />
 

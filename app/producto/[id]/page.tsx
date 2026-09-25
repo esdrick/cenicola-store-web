@@ -7,11 +7,12 @@ import { useParams, useRouter } from "next/navigation";
 import StoreNavbar from "@/components/store/StoreNavbar";
 import StoreFooter from "@/components/store/StoreFooter";
 import ProductCard from "@/components/store/ProductCard";
-import CartDrawer, { type CartItemType } from "@/components/store/CartDrawer";
+import CartDrawer from "@/components/store/CartDrawer";
 import WishlistDrawer from "@/components/store/WishlistDrawer";
 import SearchDrawer from "@/components/store/SearchDrawer";
 import QuickAddModal, { type QuickAddProduct, type QuickAddProductVariant } from "@/components/store/QuickAddModal";
 import { useWishlist } from "@/components/store/WishlistContext";
+import { useCart } from "@/components/store/CartContext";
 import ProductDetailSkeleton from "@/components/store/ProductDetailSkeleton";
 import { ArrowLeft, AlertCircle, Bookmark, ShoppingBag, Tag } from "lucide-react";
 import { getColorHex, isLightColor } from "@/lib/colors";
@@ -73,32 +74,13 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<string>("");
   const [selectedVariant, setSelectedVariant] = useState<VariantType | null>(null);
-  const [cartOpen, setCartOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
   const [quickAddModalOpen, setQuickAddModalOpen] = useState(false);
   const [quickAddTargetProduct, setQuickAddTargetProduct] = useState<QuickAddProduct | null>(null);
-  const [cart, setCart] = useState<CartItemType[]>([]);
 
+  const { cartCount, addToCart, isCartOpen, openCart, closeCart } = useCart();
   const { isInWishlist, toggleWishlist, wishlistCount } = useWishlist();
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("cenicola_cart");
-      if (saved) setCart(JSON.parse(saved));
-    } catch {
-      setCart([]);
-    }
-  }, []);
-
-  const saveCart = (newCart: CartItemType[]) => {
-    setCart(newCart);
-    try {
-      localStorage.setItem("cenicola_cart", JSON.stringify(newCart));
-    } catch {
-      // ignore
-    }
-  };
 
   useEffect(() => {
     if (!productId) return;
@@ -169,57 +151,22 @@ export default function ProductDetailPage() {
   const handleAddToCartFromModal = (variant: QuickAddProductVariant, qty: number) => {
     if (!quickAddTargetProduct) return;
 
-    const existingIndex = cart.findIndex((i) => i.variant_id === variant.id);
-    let updatedCart: CartItemType[] = [];
-
-    if (existingIndex >= 0) {
-      updatedCart = cart.map((item, idx) =>
-        idx === existingIndex
-          ? {
-              ...item,
-              quantity: Math.min(item.quantity + qty, variant.stock_online),
-            }
-          : item
-      );
-    } else {
-      updatedCart = [
-        ...cart,
-        {
-          variant_id: variant.id,
-          product_id: quickAddTargetProduct.id,
-          name: quickAddTargetProduct.name,
-          size: variant.size,
-          color: quickAddTargetProduct.color,
-          photo: quickAddTargetProduct.photos[0] || null,
-          price_usd: variant.price_usd ?? quickAddTargetProduct.price_usd,
-          price_divisas_usd: variant.price_divisas_usd ?? variant.price_usd ?? quickAddTargetProduct.price_usd,
-          price_bundle_usd: variant.price_bundle_usd,
-          price_bundle_divisas_usd: variant.price_bundle_divisas_usd,
-          price_mayor_usd: variant.price_mayor_usd,
-          price_mayor_divisas_usd: variant.price_mayor_divisas_usd,
-          quantity: qty,
-          stock_online: variant.stock_online,
-        },
-      ];
-    }
-
-    saveCart(updatedCart);
-  };
-
-  const handleUpdateQuantity = (variant_id: string, qty: number) => {
-    if (qty <= 0) {
-      handleRemoveItem(variant_id);
-      return;
-    }
-    const updated = cart.map((item) =>
-      item.variant_id === variant_id ? { ...item, quantity: Math.min(qty, item.stock_online) } : item
-    );
-    saveCart(updated);
-  };
-
-  const handleRemoveItem = (variant_id: string) => {
-    const updated = cart.filter((item) => item.variant_id !== variant_id);
-    saveCart(updated);
+    addToCart({
+      variant_id: variant.id,
+      product_id: quickAddTargetProduct.id,
+      name: quickAddTargetProduct.name,
+      size: variant.size,
+      color: quickAddTargetProduct.color,
+      photo: quickAddTargetProduct.photos[0] || null,
+      price_usd: variant.price_usd ?? quickAddTargetProduct.price_usd,
+      price_divisas_usd: variant.price_divisas_usd ?? variant.price_usd ?? quickAddTargetProduct.price_usd,
+      price_bundle_usd: variant.price_bundle_usd,
+      price_bundle_divisas_usd: variant.price_bundle_divisas_usd,
+      price_mayor_usd: variant.price_mayor_usd,
+      price_mayor_divisas_usd: variant.price_mayor_divisas_usd,
+      quantity: qty,
+      stock_online: variant.stock_online,
+    });
   };
 
   if (loading) {
@@ -257,8 +204,8 @@ export default function ProductDetailPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans text-black">
       <StoreNavbar
-        cartCount={cart.reduce((s, i) => s + i.quantity, 0)}
-        onOpenCart={() => setCartOpen(true)}
+        cartCount={cartCount}
+        onOpenCart={openCart}
         onOpenWishlist={() => setWishlistOpen(true)}
         onOpenSearch={() => setSearchDrawerOpen(true)}
         wishlistCount={wishlistCount}
@@ -591,8 +538,8 @@ export default function ProductDetailPage() {
           }
         }}
         onGoToCheckout={() => router.push("/checkout")}
-        onOpenCart={() => setCartOpen(true)}
-        cartTotalCount={cart.reduce((s, i) => s + i.quantity, 0)}
+        onOpenCart={openCart}
+        cartTotalCount={cartCount}
         bcvRate={product.bcv_rate}
       />
 
@@ -603,11 +550,8 @@ export default function ProductDetailPage() {
       />
 
       <CartDrawer
-        isOpen={cartOpen}
-        onClose={() => setCartOpen(false)}
-        items={cart}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveItem}
+        isOpen={isCartOpen}
+        onClose={closeCart}
         bcvRate={product.bcv_rate}
       />
 

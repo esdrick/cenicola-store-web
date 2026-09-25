@@ -45,7 +45,10 @@ export default function CheckoutPage() {
   const router = useRouter();
   const {
     cart,
-    updateQuantity: handleUpdateQuantity,
+    cartCount,
+    isCartOpen,
+    openCart,
+    closeCart,
     removeFromCart: handleRemoveItem,
     clearCart,
     hasOutOfStock,
@@ -57,7 +60,6 @@ export default function CheckoutPage() {
   } = useCart();
   const [bcvRate, setBcvRate] = useState<number>(1);
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
-  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
 
   // Auth State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -696,9 +698,9 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans text-slate-900 selection:bg-black selection:text-white">
       <StoreNavbar
-        cartCount={cart.reduce((s, i) => s + i.quantity, 0)}
+        cartCount={cartCount}
         onOpenSearch={() => setSearchDrawerOpen(true)}
-        onOpenCart={() => setCartDrawerOpen(true)}
+        onOpenCart={openCart}
       />
 
       {completedOrderData ? (
@@ -749,11 +751,11 @@ export default function CheckoutPage() {
           <section className="border border-slate-200 p-6 sm:p-8 space-y-6 bg-white rounded-xs">
             <div className="flex justify-between items-center pb-3 border-b border-slate-200">
               <h2 className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-black">
-                1. RESUMEN DE TU PEDIDO ({cart.reduce((s, i) => s + i.quantity, 0)} PRENDAS)
+                1. RESUMEN DE TU PEDIDO ({cartCount} PRENDAS)
               </h2>
               <button
                 type="button"
-                onClick={() => setCartDrawerOpen(true)}
+                onClick={openCart}
                 className="text-[11px] text-slate-500 hover:text-black underline uppercase tracking-wider cursor-pointer"
               >
                 EDITAR
@@ -802,7 +804,7 @@ export default function CheckoutPage() {
                   <span className="text-slate-300">•</span>
                   <button
                     type="button"
-                    onClick={() => setCartDrawerOpen(true)}
+                    onClick={openCart}
                     className="text-[10px] uppercase tracking-widest font-medium text-slate-500 hover:text-black transition-colors cursor-pointer"
                   >
                     Modificar cesta
@@ -1967,11 +1969,8 @@ export default function CheckoutPage() {
       />
 
       <CartDrawer
-        isOpen={cartDrawerOpen}
-        onClose={() => setCartDrawerOpen(false)}
-        items={cart}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveItem}
+        isOpen={isCartOpen}
+        onClose={closeCart}
         bcvRate={bcvRate}
       />
 

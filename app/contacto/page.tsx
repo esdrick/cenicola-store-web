@@ -4,38 +4,20 @@ import { useState, useEffect } from "react";
 import StoreNavbar from "@/components/store/StoreNavbar";
 import StoreFooter from "@/components/store/StoreFooter";
 import SearchDrawer from "@/components/store/SearchDrawer";
-import CartDrawer, { type CartItemType } from "@/components/store/CartDrawer";
+import CartDrawer from "@/components/store/CartDrawer";
 import WishlistDrawer from "@/components/store/WishlistDrawer";
 import { useWishlist } from "@/components/store/WishlistContext";
+import { useCart } from "@/components/store/CartContext";
 import { useRouter } from "next/navigation";
 import { MapPin, Phone, Clock, Truck, ArrowUpRight, MessageCircle, Building2 } from "lucide-react";
 
 export default function ContactoPage() {
   const router = useRouter();
   const [bcvRate, setBcvRate] = useState(1);
-  const [cartOpen, setCartOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
-  const [cart, setCart] = useState<CartItemType[]>([]);
   const { wishlistCount } = useWishlist();
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("cenicola_cart");
-      if (saved) setCart(JSON.parse(saved));
-    } catch {
-      setCart([]);
-    }
-  }, []);
-
-  const saveCart = (newCart: CartItemType[]) => {
-    setCart(newCart);
-    try {
-      localStorage.setItem("cenicola_cart", JSON.stringify(newCart));
-    } catch {
-      // ignore
-    }
-  };
+  const { cartCount, isCartOpen, openCart, closeCart } = useCart();
 
   useEffect(() => {
     fetch("/api/store/products")
@@ -46,29 +28,11 @@ export default function ContactoPage() {
       .catch(() => {});
   }, []);
 
-  const handleUpdateQuantity = (variant_id: string, qty: number) => {
-    if (qty <= 0) {
-      handleRemoveItem(variant_id);
-      return;
-    }
-    const updated = cart.map((item) =>
-      item.variant_id === variant_id
-        ? { ...item, quantity: Math.min(qty, item.stock_online) }
-        : item
-    );
-    saveCart(updated);
-  };
-
-  const handleRemoveItem = (variant_id: string) => {
-    const updated = cart.filter((item) => item.variant_id !== variant_id);
-    saveCart(updated);
-  };
-
   return (
     <div className="min-h-screen bg-white text-black flex flex-col font-sans selection:bg-black selection:text-white">
       <StoreNavbar
-        cartCount={cart.reduce((s, i) => s + i.quantity, 0)}
-        onOpenCart={() => setCartOpen(true)}
+        cartCount={cartCount}
+        onOpenCart={openCart}
         onOpenWishlist={() => setWishlistOpen(true)}
         onOpenSearch={() => setSearchDrawerOpen(true)}
         wishlistCount={wishlistCount}
@@ -261,11 +225,8 @@ export default function ContactoPage() {
       />
 
       <CartDrawer
-        isOpen={cartOpen}
-        onClose={() => setCartOpen(false)}
-        items={cart}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveItem}
+        isOpen={isCartOpen}
+        onClose={closeCart}
         bcvRate={bcvRate}
       />
 
