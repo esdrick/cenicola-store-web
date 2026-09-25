@@ -423,8 +423,23 @@ function CatalogContent() {
     }
   };
 
-  const defaultCategories = ["Mujer", "Hombre", "Niños", "Niño", "Niña"];
-  const allCategoryPills = Array.from(new Set([...defaultCategories, ...categories]));
+  const allCategoryPills = useMemo(() => {
+    const defaultCategories = ["Mujer", "Hombre", "Niños"];
+    const map = new Map<string, string>();
+    for (const d of defaultCategories) {
+      map.set(d.toLowerCase(), d);
+    }
+    for (const c of categories) {
+      if (!c) continue;
+      const trimmed = c.trim();
+      const lower = trimmed.toLowerCase();
+      if (!map.has(lower)) {
+        const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+        map.set(lower, capitalized);
+      }
+    }
+    return Array.from(map.values());
+  }, [categories]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans">
@@ -704,6 +719,9 @@ function CatalogContent() {
         onResetFilters={resetAllFilters}
         availableSizes={availableSizes.length > 0 ? availableSizes : undefined}
         availableColors={availableColors}
+        availableCategories={allCategoryPills}
+        selectedCategory={selectedCategory}
+        onCategorySelect={handleCategorySelect}
         totalResults={filteredProducts.length}
       />
 

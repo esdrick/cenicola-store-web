@@ -208,7 +208,18 @@ export async function GET(request: NextRequest) {
       colorsByNameMap.set(key, list);
     }
 
-    const data = products.map((p) => {
+    // Deduplicate products by normalized name so each garment model appears only once in the catalog
+    const seenProductNames = new Set<string>();
+    const uniqueProducts: typeof products = [];
+    for (const p of products) {
+      const nameKey = p.name.trim().toLowerCase();
+      if (!seenProductNames.has(nameKey)) {
+        seenProductNames.add(nameKey);
+        uniqueProducts.push(p);
+      }
+    }
+
+    const data = uniqueProducts.map((p) => {
       const minPriceUsd = Math.min(...p.variants.map((v) => Number(v.price_bcv)));
       const minPriceDivisasUsd = Math.min(
         ...p.variants.map((v) => (Number(v.price_divisas) > 0 ? Number(v.price_divisas) : Number(v.price_bcv)))
@@ -260,8 +271,24 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Extract unique categories directly from products without extra DB query
-    const categories = Array.from(new Set(products.map((p) => p.type))).filter(Boolean);
+    // Query all distinct active categories from the database across all active products with stock
+    const allTypesResult = await prisma.product.findMany({
+      where: {
+        is_active: true,
+        variants: {
+          some: {
+            is_active: true,
+            stock_online: { gt: 0 },
+          },
+        },
+      },
+      select: { type: true },
+      distinct: ["type"],
+    });
+
+    const categories = Array.from(
+      new Set(allTypesResult.map((t) => t.type?.trim()).filter(Boolean))
+    ) as string[];
 
     return NextResponse.json(
       {
@@ -271,9 +298,7 @@ export async function GET(request: NextRequest) {
       },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=1800",
-          "CDN-Cache-Control": "public, s-maxage=300",
-          "Vercel-CDN-Cache-Control": "public, s-maxage=300",
+          "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30",
         },
       }
     );

@@ -154,8 +154,23 @@ export default function StoreHomePage() {
     saveCart(updated);
   };
 
-  const defaultCategories = ["Mujer", "Hombre", "Niños", "Niño", "Niña"];
-  const allCategoryPills = Array.from(new Set([...defaultCategories, ...categories]));
+  const defaultCategories = ["Mujer", "Hombre", "Niños"];
+  const allCategoryPills = (() => {
+    const map = new Map<string, string>();
+    for (const d of defaultCategories) {
+      map.set(d.toLowerCase(), d);
+    }
+    for (const c of categories) {
+      if (!c) continue;
+      const trimmed = c.trim();
+      const lower = trimmed.toLowerCase();
+      if (!map.has(lower)) {
+        const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+        map.set(lower, capitalized);
+      }
+    }
+    return Array.from(map.values());
+  })();
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans">

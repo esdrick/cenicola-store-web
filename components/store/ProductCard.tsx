@@ -123,11 +123,13 @@ export default function ProductCard(props: ProductCardProps) {
               {available_colors && available_colors.length > 1 ? (
                 <div className="flex items-center gap-1 shrink-0">
                   {available_colors.slice(0, 3).map((cObj) => (
-                    <span
+                    <Link
                       key={cObj.id + (cObj.color || "")}
-                      className="w-2.5 h-2.5 rounded-full inline-block border border-slate-300 shrink-0"
+                      href={`/producto/${cObj.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-2.5 h-2.5 rounded-full inline-block border border-slate-300 shrink-0 hover:scale-125 transition-transform"
                       style={{ backgroundColor: getColorHex(cObj.color) }}
-                      title={cObj.color || "Color"}
+                      title={`Ver color ${cObj.color || ""}`}
                     />
                   ))}
                   <span className="text-[9px] text-slate-500 font-medium">
@@ -311,13 +313,15 @@ export default function ProductCard(props: ProductCardProps) {
                     const isLight = isLightColor(cObj.color);
                     const isCurrent = (cObj.color || "").toLowerCase() === (color || "").toLowerCase();
                     return (
-                      <span
+                      <Link
                         key={cObj.id + (cObj.color || "")}
-                        className={`w-3 h-3 rounded-full inline-block border transition-transform ${
+                        href={`/producto/${cObj.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`w-3 h-3 rounded-full inline-block border transition-all hover:scale-125 ${
                           isCurrent ? "scale-110 ring-1 ring-black/70" : ""
                         } ${isLight ? "border-slate-300" : "border-slate-200"}`}
                         style={{ backgroundColor: cHex }}
-                        title={cObj.color || "Color"}
+                        title={`Ver color ${cObj.color || ""}`}
                       />
                     );
                   })}

@@ -18,6 +18,9 @@ type FilterDrawerProps = {
   onResetFilters: () => void;
   availableSizes?: string[];
   availableColors?: string[];
+  availableCategories?: string[];
+  selectedCategory?: string;
+  onCategorySelect?: (category: string) => void;
   totalResults: number;
 };
 
@@ -50,6 +53,9 @@ export default function FilterDrawer({
   onResetFilters,
   availableSizes = DEFAULT_SIZES,
   availableColors = [],
+  availableCategories = [],
+  selectedCategory = "",
+  onCategorySelect,
   totalResults,
 }: FilterDrawerProps) {
   if (!isOpen) return null;
@@ -112,8 +118,57 @@ export default function FilterDrawer({
 
           {/* Drawer Scrollable Content */}
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+            {/* Section 0: CATEGORÍA / TIPO */}
+            {availableCategories && availableCategories.length > 0 && (
+              <div className="space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-black block">
+                    CATEGORÍA / PRENDA
+                  </label>
+                  {selectedCategory && (
+                    <button
+                      onClick={() => onCategorySelect && onCategorySelect("")}
+                      className="text-[10px] text-slate-500 underline hover:text-black"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onCategorySelect && onCategorySelect("")}
+                    className={`py-1.5 px-3 text-center text-xs font-normal border transition-all rounded-xs ${
+                      selectedCategory === ""
+                        ? "bg-black text-white border-black"
+                        : "bg-white text-black border-slate-300 hover:border-black"
+                    }`}
+                  >
+                    Ver Todo
+                  </button>
+                  {availableCategories.map((cat) => {
+                    const isSelected = selectedCategory?.toLowerCase() === cat.toLowerCase();
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => onCategorySelect && onCategorySelect(cat)}
+                        className={`py-1.5 px-3 text-center text-xs font-normal border transition-all rounded-xs ${
+                          isSelected
+                            ? "bg-black text-white border-black"
+                            : "bg-white text-black border-slate-300 hover:border-black"
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Section 1: ORDENAR POR */}
-            <div className="space-y-2.5">
+            <div className={`space-y-2.5 ${availableCategories && availableCategories.length > 0 ? "pt-4 border-t border-slate-100" : ""}`}>
               <label className="text-xs font-semibold uppercase tracking-wider text-black block">
                 ORDENAR POR
               </label>
