@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import SafeImage from "@/components/ui/SafeImage";
 import Link from "next/link";
 import { Search, X, ArrowRight } from "lucide-react";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 
 type SearchResultItem = {
   id: string;
@@ -163,10 +164,12 @@ export default function SearchDrawer({ isOpen, onClose, onSearchSubmit }: Search
                       >
                         <div className="relative aspect-[3/4] bg-slate-100 rounded-xs overflow-hidden w-full">
                           <SafeImage
-                            src={photo}
+                            src={getOptimizedCloudinaryUrl(photo, 400)}
                             alt={item.name}
                             fill
                             sizes="180px"
+                            cloudinaryWidth={400}
+                            loading="lazy"
                             className="object-cover object-center group-hover:scale-105 transition-transform duration-500"
                           />
                         </div>

@@ -14,6 +14,7 @@ import QuickAddModal, { type QuickAddProduct, type QuickAddProductVariant } from
 import { useWishlist } from "@/components/store/WishlistContext";
 import { useCart } from "@/components/store/CartContext";
 import { ArrowRight, ShoppingBag } from "lucide-react";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 
 type ProductType = {
   id: string;
@@ -154,11 +155,11 @@ export default function StoreHomePage() {
             {heroBackgrounds.map((photo, idx) => (
               <Image
                 key={photo + idx}
-                src={photo}
+                src={getOptimizedCloudinaryUrl(photo, 1200)}
                 alt={`Q' FRANELAS Colección ${idx + 1}`}
                 fill
                 priority={idx === 0}
-                quality={90}
+                loading={idx === 0 ? "eager" : "lazy"}
                 sizes="100vw"
                 className={`object-cover object-right md:object-center transition-opacity duration-1000 pointer-events-none ${
                   idx === currentSlide ? "opacity-95" : "opacity-0"

@@ -5,6 +5,7 @@ import { ArrowRight, Bookmark, Plus, ShoppingBag } from "lucide-react";
 import { useWishlist } from "./WishlistContext";
 import SafeImage from "@/components/ui/SafeImage";
 import { getColorHex, isLightColor } from "@/lib/colors";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 
 type ProductCardProps = {
   id: string;
@@ -109,10 +110,12 @@ export default function ProductCard(props: ProductCardProps) {
             className="relative w-12 sm:w-16 aspect-[3/4] bg-slate-100 rounded-xs overflow-hidden shrink-0 block"
           >
             <SafeImage
-              src={mainPhoto}
+              src={getOptimizedCloudinaryUrl(mainPhoto, 400)}
               alt={name}
               fill
               sizes="80px"
+              cloudinaryWidth={400}
+              loading="lazy"
               className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
             />
           </Link>
@@ -248,9 +251,11 @@ export default function ProductCard(props: ProductCardProps) {
       <div className="relative aspect-[3/4] w-full bg-slate-100 overflow-hidden block">
         <Link href={`/producto/${id}`} className="w-full h-full block relative">
           <SafeImage
-            src={mainPhoto}
+            src={getOptimizedCloudinaryUrl(mainPhoto, isCompact ? 400 : 600)}
             alt={name}
             fill
+            cloudinaryWidth={isCompact ? 400 : 600}
+            loading="lazy"
             sizes={
               isCompact
                 ? "(max-width: 768px) 33vw, (max-width: 1200px) 25vw, 16vw"
@@ -260,10 +265,12 @@ export default function ProductCard(props: ProductCardProps) {
           />
           {hoverPhoto && hoverPhoto !== mainPhoto && (
             <SafeImage
-              src={hoverPhoto}
+              src={getOptimizedCloudinaryUrl(hoverPhoto, isCompact ? 400 : 600)}
               alt={`${name} alt`}
               fill
               showSkeleton={false}
+              cloudinaryWidth={isCompact ? 400 : 600}
+              loading="lazy"
               sizes={
                 isCompact
                   ? "(max-width: 768px) 33vw, (max-width: 1200px) 25vw, 16vw"

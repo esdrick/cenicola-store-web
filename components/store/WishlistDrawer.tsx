@@ -3,6 +3,7 @@
 import SafeImage from "@/components/ui/SafeImage";
 import Link from "next/link";
 import { X, Trash2, Heart, ShoppingBag } from "lucide-react";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 import { useWishlist } from "./WishlistContext";
 
 type WishlistDrawerProps = {
@@ -77,10 +78,12 @@ export default function WishlistDrawer({ isOpen, onClose }: WishlistDrawerProps)
                       className="relative w-16 h-20 bg-slate-100 overflow-hidden shrink-0 block"
                     >
                       <SafeImage
-                        src={photo}
+                        src={getOptimizedCloudinaryUrl(photo, 400)}
                         alt={item.name}
                         fill
                         sizes="64px"
+                        cloudinaryWidth={400}
+                        loading="lazy"
                         className="object-cover object-center"
                       />
                     </Link>

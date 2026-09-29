@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { X, Upload, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 
 interface Props {
   isOpen: boolean;
@@ -245,10 +246,11 @@ export default function ReuploadPaymentModal({
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="relative w-12 h-12 border border-slate-200 rounded-xs shrink-0 overflow-hidden">
                       <Image
-                        src={paymentPhoto}
+                        src={getOptimizedCloudinaryUrl(paymentPhoto, 400)}
                         alt="Comprobante nuevo"
                         fill
                         className="object-cover"
+                        loading="lazy"
                         unoptimized
                       />
                     </div>

@@ -4,6 +4,7 @@ import SafeImage from "@/components/ui/SafeImage";
 import Link from "next/link";
 import { X, Trash2, ShoppingBag, ArrowRight, Minus, Plus, RefreshCw } from "lucide-react";
 import { getVolumeTierInfo } from "@/lib/whatsapp";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 import { useCart } from "./CartContext";
 
 export type CartItemType = {
@@ -223,10 +224,12 @@ export default function CartDrawer({
                         className="w-full h-full block"
                       >
                         <SafeImage
-                          src={photo}
+                          src={getOptimizedCloudinaryUrl(photo, 400)}
                           alt={item.name}
                           fill
                           sizes="64px"
+                          cloudinaryWidth={400}
+                          loading="lazy"
                           className={`object-cover object-center ${isOutOfStock ? "grayscale contrast-75" : ""}`}
                         />
                       </Link>

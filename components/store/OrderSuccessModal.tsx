@@ -2,6 +2,7 @@
 
 import React from "react";
 import SafeImage from "@/components/ui/SafeImage";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 import {
   Check,
   Package,
@@ -184,9 +185,12 @@ export default function OrderSuccessModal({
                 <div key={idx} className="py-3 flex items-center gap-3">
                   <div className="relative w-12 h-14 bg-slate-100 border border-slate-200 flex-shrink-0 overflow-hidden">
                     <SafeImage
-                      src={item.photo || "/placeholder.png"}
+                      src={getOptimizedCloudinaryUrl(item.photo || "/placeholder.png", 400)}
                       alt={item.name}
                       fill
+                      sizes="60px"
+                      cloudinaryWidth={400}
+                      loading="lazy"
                       className="object-cover"
                     />
                   </div>

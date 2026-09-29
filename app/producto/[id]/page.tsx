@@ -16,6 +16,7 @@ import { useCart } from "@/components/store/CartContext";
 import ProductDetailSkeleton from "@/components/store/ProductDetailSkeleton";
 import { ArrowLeft, AlertCircle, Bookmark, ShoppingBag, Tag } from "lucide-react";
 import { getColorHex, isLightColor } from "@/lib/colors";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 
 type VariantType = {
   id: string;
@@ -249,7 +250,15 @@ export default function ProductDetailPage() {
                       selectedPhoto === photo ? "border-black" : "border-slate-200 opacity-60 hover:opacity-100"
                     }`}
                   >
-                    <SafeImage src={photo} alt={`${product.name} ${idx}`} fill sizes="60px" className="object-cover" />
+                    <SafeImage
+                      src={getOptimizedCloudinaryUrl(photo, 400)}
+                      alt={`${product.name} ${idx}`}
+                      fill
+                      sizes="60px"
+                      cloudinaryWidth={400}
+                      loading="lazy"
+                      className="object-cover"
+                    />
                   </button>
                 ))}
               </div>
@@ -258,10 +267,11 @@ export default function ProductDetailPage() {
             {/* Featured Photo (Controlled Compact Height) */}
             <div className="relative aspect-[3/4] w-full max-w-md mx-auto bg-slate-100 overflow-hidden flex-1">
               <SafeImage
-                src={selectedPhoto}
+                src={getOptimizedCloudinaryUrl(selectedPhoto, 1000)}
                 alt={product.name}
                 fill
                 priority
+                cloudinaryWidth={1000}
                 sizes="(max-width: 1024px) 100vw, 45vw"
                 className="object-cover object-center"
               />

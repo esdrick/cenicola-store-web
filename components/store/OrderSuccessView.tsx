@@ -4,6 +4,7 @@ import React from "react";
 import SafeImage from "@/components/ui/SafeImage";
 import { Check, Truck, CreditCard, ArrowRight } from "lucide-react";
 import { isDivisasPaymentMethod } from "@/lib/whatsapp";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 
 export interface OrderSuccessData {
   orderNumber: string;
@@ -150,9 +151,12 @@ export default function OrderSuccessView({
             <div key={idx} className="py-4 flex items-center gap-4">
               <div className="relative w-14 h-16 bg-neutral-100 border border-neutral-200 flex-shrink-0 overflow-hidden">
                 <SafeImage
-                  src={item.photo || "/placeholder.png"}
+                  src={getOptimizedCloudinaryUrl(item.photo || "/placeholder.png", 400)}
                   alt={item.name}
                   fill
+                  sizes="60px"
+                  cloudinaryWidth={400}
+                  loading="lazy"
                   className="object-cover"
                 />
               </div>

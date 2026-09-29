@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import SafeImage from "@/components/ui/SafeImage";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import StoreNavbar from "@/components/store/StoreNavbar";
@@ -848,10 +849,12 @@ export default function CheckoutPage() {
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="relative w-14 aspect-[3/4] bg-slate-100 shrink-0 overflow-hidden border border-slate-200 rounded-xs">
                         <SafeImage
-                          src={item.photo}
+                          src={getOptimizedCloudinaryUrl(item.photo, 400)}
                           alt={item.name}
                           fill
                           sizes="60px"
+                          cloudinaryWidth={400}
+                          loading="lazy"
                           className={`object-cover ${isOutOfStock ? "grayscale contrast-75" : ""}`}
                         />
                         {isOutOfStock && (
@@ -1811,7 +1814,7 @@ export default function CheckoutPage() {
                     {paymentPhoto ? (
                       <div className="flex items-center gap-3 bg-slate-50 p-2 border border-slate-200 rounded-xs">
                         <div className="relative w-12 h-12 bg-white rounded-xs overflow-hidden shrink-0 border border-slate-200">
-                          <Image src={paymentPhoto} alt="Comprobante" fill className="object-cover" unoptimized />
+                          <Image src={getOptimizedCloudinaryUrl(paymentPhoto, 400)} alt="Comprobante" fill className="object-cover" loading="lazy" unoptimized />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">

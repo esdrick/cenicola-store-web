@@ -3,11 +3,13 @@
 import { useState } from "react";
 import Image, { ImageProps } from "next/image";
 import { ImageOff } from "lucide-react";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 
 interface SafeImageProps extends Omit<ImageProps, "onError" | "onLoad" | "src"> {
   src?: ImageProps["src"] | string | null | undefined;
   fallbackText?: string;
   showSkeleton?: boolean;
+  cloudinaryWidth?: number;
 }
 
 export default function SafeImage({
@@ -16,6 +18,8 @@ export default function SafeImage({
   className = "",
   fallbackText = "SIN FOTO",
   showSkeleton = true,
+  cloudinaryWidth = 600,
+  loading = "lazy",
   ...props
 }: SafeImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -41,6 +45,11 @@ export default function SafeImage({
     );
   }
 
+  const finalSrc =
+    typeof src === "string"
+      ? getOptimizedCloudinaryUrl(src, cloudinaryWidth)
+      : src;
+
   return (
     <>
       {/* Skeleton Shimmer Loading State for slow internet */}
@@ -51,8 +60,9 @@ export default function SafeImage({
       )}
 
       <Image
-        src={src as ImageProps["src"]}
+        src={finalSrc as ImageProps["src"]}
         alt={alt}
+        loading={props.priority ? undefined : loading}
         className={`${className} transition-opacity duration-300 ease-out ${
           isLoaded ? "opacity-100" : "opacity-0"
         }`}

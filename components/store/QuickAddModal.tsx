@@ -5,6 +5,7 @@ import SafeImage from "@/components/ui/SafeImage";
 import { X, Minus, Plus, ShoppingBag, ArrowRight, Check, ShoppingCart } from "lucide-react";
 import { getVolumeTierInfo } from "@/lib/whatsapp";
 import { getColorHex } from "@/lib/colors";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 
 export type QuickAddProductVariant = {
   id: string;
@@ -153,10 +154,12 @@ export default function QuickAddModal({
             <div className="flex gap-4 p-3 bg-slate-50 border border-slate-100 rounded-none">
               <div className="relative w-16 h-20 bg-slate-200 overflow-hidden shrink-0 rounded-none">
                 <SafeImage
-                  src={mainPhoto}
+                  src={getOptimizedCloudinaryUrl(mainPhoto, 400)}
                   alt={product.name}
                   fill
                   sizes="80px"
+                  cloudinaryWidth={400}
+                  loading="lazy"
                   className="object-cover object-center"
                 />
               </div>

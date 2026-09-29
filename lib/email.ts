@@ -2,6 +2,7 @@
 // Soporta Resend API y fallback SMTP/Nodemailer con diseño minimalista tipo Zara / Lefties.
 
 import { isDivisasPaymentMethod } from "@/lib/whatsapp";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 
 type EmailPayload = {
   to: string;
@@ -410,7 +411,7 @@ export async function sendOrderShippedEmail({
               ? `
             <div style="text-align:center; margin: 24px 0;">
               <p style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; color: #000000;">FOTO DEL PAQUETE EMPACADO</p>
-              <img src="${packagePhotoUrl}" alt="Foto Paquete" style="max-width: 100%; border: 1px solid #e5e5e5;" />
+              <img src="${getOptimizedCloudinaryUrl(packagePhotoUrl, 600)}" alt="Foto Paquete" style="max-width: 100%; border: 1px solid #e5e5e5;" />
             </div>
           `
               : ""
