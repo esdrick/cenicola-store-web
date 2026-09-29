@@ -74,6 +74,8 @@ export default function CheckoutPage() {
   const [forgotStep, setForgotStep] = useState<1 | 2>(1);
   const [forgotPin, setForgotPin] = useState("");
   const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotCooldown, setForgotCooldown] = useState(0);
+  const [lastFailedForgotEmail, setLastFailedForgotEmail] = useState<string | null>(null);
   const [showPinStep, setShowPinStep] = useState(false);
   const [pinCode, setPinCode] = useState("");
   const [pinSubmitting, setPinSubmitting] = useState(false);
@@ -81,7 +83,36 @@ export default function CheckoutPage() {
   const [pinError, setPinError] = useState("");
   const [resendingPin, setResendingPin] = useState(false);
   const [resendPinSuccess, setResendPinSuccess] = useState("");
+  const [pinCooldown, setPinCooldown] = useState(0);
   const [authSubmitting, setAuthSubmitting] = useState(false);
+
+  // Cooldown timer for PIN resend
+  useEffect(() => {
+    if (pinCooldown <= 0) {
+      if (pinError && pinError.includes("esperar")) {
+        setPinError("");
+      }
+      return;
+    }
+    const interval = setInterval(() => {
+      setPinCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [pinCooldown, pinError]);
+
+  // Cooldown timer for password recovery
+  useEffect(() => {
+    if (forgotCooldown <= 0) {
+      if (authError && authError.includes("esperar")) {
+        setAuthError("");
+      }
+      return;
+    }
+    const interval = setInterval(() => {
+      setForgotCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [forgotCooldown, authError]);
 
   // Customer & Delivery Form Fields
   const [customerName, setCustomerName] = useState("");
@@ -250,16 +281,27 @@ export default function CheckoutPage() {
         }
 
         if (forgotStep === 1) {
+          if (forgotCooldown > 0) return;
+          if (lastFailedForgotEmail && lastFailedForgotEmail === authEmail.trim().toLowerCase()) return;
+
           const res = await fetch("/api/store/auth/forgot-password", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email: authEmail.trim() }),
           });
           const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Error al solicitar el código de recuperación.");
+          if (!res.ok) {
+            setLastFailedForgotEmail(authEmail.trim().toLowerCase());
+            if (data.secondsRemaining) {
+              setForgotCooldown(data.secondsRemaining);
+            }
+            throw new Error(data.error || "Error al solicitar el código de recuperación.");
+          }
 
           setForgotStep(2);
-          setResendPinSuccess("Un código PIN de 6 dígitos ha sido enviado a tu correo.");
+          setForgotCooldown(60);
+          setLastFailedForgotEmail(null);
+          setResendPinSuccess(data.devPin ? `Código generado (PIN: ${data.devPin})` : "Un código PIN de 6 dígitos ha sido enviado a tu correo.");
         } else {
           if (!forgotPin.trim() || forgotPin.trim().length !== 6) {
             throw new Error("Ingresa el código PIN de 6 dígitos que recibiste en tu correo.");
@@ -300,6 +342,7 @@ export default function CheckoutPage() {
         if (!res.ok) {
           if (data.requiresVerification || data.require_pin) {
             setShowPinStep(true);
+            setPinCooldown(60);
             setAuthError("");
             setPinError("");
             setPinCode("");
@@ -310,6 +353,7 @@ export default function CheckoutPage() {
 
         if (data.requiresVerification || data.require_pin) {
           setShowPinStep(true);
+          setPinCooldown(60);
           setAuthError("");
           setPinError("");
           setPinCode("");
@@ -356,6 +400,7 @@ export default function CheckoutPage() {
 
         if (data.requiresVerification || data.require_pin) {
           setShowPinStep(true);
+          setPinCooldown(60);
           setAuthError("");
           setPinError("");
           setPinCode("");
@@ -402,7 +447,7 @@ export default function CheckoutPage() {
   };
 
   const handleResendPin = async () => {
-    if (!authEmail) return;
+    if (!authEmail || pinCooldown > 0) return;
     setResendingPin(true);
     setResendPinSuccess("");
     setPinError("");
@@ -416,7 +461,11 @@ export default function CheckoutPage() {
       const data = await res.json();
       if (!res.ok) {
         setPinError(data.error || "Error al reenviar el código PIN");
+        if (data.secondsRemaining) {
+          setPinCooldown(data.secondsRemaining);
+        }
       } else {
+        setPinCooldown(60);
         setResendPinSuccess(data.message || "Un nuevo código PIN ha sido enviado a tu correo");
         setPinCode("");
       }
@@ -424,6 +473,33 @@ export default function CheckoutPage() {
       setPinError("Error de conexión al reenviar PIN");
     } finally {
       setResendingPin(false);
+    }
+  };
+
+  const handleResendForgotPin = async () => {
+    if (!authEmail.trim() || forgotCooldown > 0) return;
+    setAuthSubmitting(true);
+    setAuthError("");
+    setResendPinSuccess("");
+    try {
+      const res = await fetch("/api/store/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: authEmail.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAuthError(data.error || "Error al reenviar código.");
+        if (data.secondsRemaining) setForgotCooldown(data.secondsRemaining);
+      } else {
+        setForgotCooldown(60);
+        setResendPinSuccess(data.devPin ? `Código generado (PIN: ${data.devPin})` : "Un nuevo código PIN ha sido enviado a tu correo.");
+        setForgotPin("");
+      }
+    } catch {
+      setAuthError("Error de conexión al reenviar código.");
+    } finally {
+      setAuthSubmitting(false);
     }
   };
 
@@ -1044,7 +1120,9 @@ export default function CheckoutPage() {
 
                 {pinError && (
                   <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xs text-center font-medium">
-                    {pinError}
+                    {pinError.includes("esperar") && pinCooldown > 0
+                      ? `Debes esperar ${pinCooldown}s antes de solicitar otro código.`
+                      : pinError}
                   </div>
                 )}
 
@@ -1088,10 +1166,14 @@ export default function CheckoutPage() {
                   <button
                     type="button"
                     onClick={handleResendPin}
-                    disabled={resendingPin}
-                    className="text-[11px] text-slate-500 hover:text-black font-semibold uppercase tracking-wider underline transition-colors cursor-pointer disabled:opacity-50"
+                    disabled={resendingPin || pinCooldown > 0}
+                    className="text-[11px] text-slate-500 hover:text-black font-semibold uppercase tracking-wider underline transition-colors cursor-pointer disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
                   >
-                    {resendingPin ? "Reenviando Código..." : "¿No recibiste el PIN? Reenviar Código"}
+                    {resendingPin
+                      ? "Reenviando Código..."
+                      : pinCooldown > 0
+                      ? `Reenviar código en ${pinCooldown}s`
+                      : "¿No recibiste el PIN? Reenviar Código"}
                   </button>
                 </div>
               </div>
@@ -1110,7 +1192,7 @@ export default function CheckoutPage() {
                         Este correo electrónico ya se encuentra registrado.{" "}
                         <button
                           type="button"
-                          onClick={() => { setAuthTab("login"); setAuthError(""); }}
+                          onClick={() => { setAuthTab("login"); setAuthError(""); setLastFailedForgotEmail(null); }}
                           className="font-bold underline text-red-950 hover:text-black cursor-pointer inline"
                         >
                           Iniciar Sesión
@@ -1118,15 +1200,34 @@ export default function CheckoutPage() {
                         o{" "}
                         <button
                           type="button"
-                          onClick={() => { setAuthTab("forgot"); setForgotStep(1); setAuthError(""); }}
+                          onClick={() => { setAuthTab("forgot"); setForgotStep(1); setAuthError(""); setLastFailedForgotEmail(null); }}
                           className="font-bold underline text-red-950 hover:text-black cursor-pointer inline"
                         >
                           Recuperar Contraseña
                         </button>
                         .
                       </p>
+                    ) : authError.includes("No encontramos ninguna cuenta") ? (
+                      <div className="space-y-1">
+                        <p>{authError}</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthTab("register");
+                            setAuthError("");
+                            setLastFailedForgotEmail(null);
+                          }}
+                          className="text-[11px] font-semibold text-red-900 hover:text-black underline block pt-0.5 cursor-pointer"
+                        >
+                          → Haz clic aquí para Crear tu Cuenta con este correo
+                        </button>
+                      </div>
                     ) : (
-                      <span>{authError}</span>
+                      <span>
+                        {authError.includes("esperar") && forgotCooldown > 0
+                          ? `Debes esperar ${forgotCooldown}s antes de solicitar otro código.`
+                          : authError}
+                      </span>
                     )}
                   </div>
                 )}
@@ -1164,7 +1265,7 @@ export default function CheckoutPage() {
                 <div className="flex border-b border-slate-200 text-xs font-medium uppercase tracking-wider">
                   <button
                     type="button"
-                    onClick={() => { setAuthTab("login"); setAuthError(""); setResendPinSuccess(""); }}
+                    onClick={() => { setAuthTab("login"); setAuthError(""); setLastFailedForgotEmail(null); setResendPinSuccess(""); }}
                     className={`py-2 px-4 border-b-2 cursor-pointer transition-colors ${
                       authTab === "login"
                         ? "border-black font-semibold text-black"
@@ -1175,7 +1276,7 @@ export default function CheckoutPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setAuthTab("register"); setAuthError(""); setResendPinSuccess(""); }}
+                    onClick={() => { setAuthTab("register"); setAuthError(""); setLastFailedForgotEmail(null); setResendPinSuccess(""); }}
                     className={`py-2 px-4 border-b-2 cursor-pointer transition-colors ${
                       authTab === "register"
                         ? "border-black font-semibold text-black"
@@ -1217,32 +1318,49 @@ export default function CheckoutPage() {
                             type="email"
                             required
                             value={authEmail}
-                            onChange={(e) => setAuthEmail(e.target.value)}
+                            onChange={(e) => {
+                              setAuthEmail(e.target.value);
+                              if (authError) setAuthError("");
+                              if (lastFailedForgotEmail) setLastFailedForgotEmail(null);
+                            }}
                             placeholder="nombre@ejemplo.com"
                             className="w-full px-3.5 py-2.5 text-xs text-black border border-slate-300 focus:outline-none focus:border-black rounded-xs bg-white placeholder:text-slate-400 font-mono"
                           />
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={handleAuthSubmit}
-                          disabled={authSubmitting}
-                          className="w-full bg-black text-white py-3.5 px-4 text-xs font-semibold uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 rounded-xs cursor-pointer disabled:opacity-50 mt-2"
-                        >
-                          {authSubmitting ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span>Enviando Código...</span>
-                            </>
-                          ) : (
-                            "Enviar Código de Recuperación"
-                          )}
-                        </button>
+                        {(() => {
+                          const isEmailUnchangedAfterError = Boolean(
+                            lastFailedForgotEmail &&
+                            authEmail.trim().toLowerCase() === lastFailedForgotEmail
+                          );
+
+                          return (
+                            <button
+                              type="button"
+                              onClick={handleAuthSubmit}
+                              disabled={authSubmitting || forgotCooldown > 0 || isEmailUnchangedAfterError}
+                              className="w-full bg-black text-white py-3.5 px-4 text-xs font-semibold uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 rounded-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                            >
+                              {authSubmitting ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  <span>Enviando Código...</span>
+                                </>
+                              ) : forgotCooldown > 0 ? (
+                                `Esperar para solicitar (${forgotCooldown}s)`
+                              ) : isEmailUnchangedAfterError ? (
+                                "Modifica el correo para reintentar"
+                              ) : (
+                                "Enviar Código de Recuperación"
+                              )}
+                            </button>
+                          );
+                        })()}
 
                         <div className="pt-1 text-center">
                           <button
                             type="button"
-                            onClick={() => { setAuthTab("login"); setAuthError(""); setResendPinSuccess(""); }}
+                            onClick={() => { setAuthTab("login"); setAuthError(""); setLastFailedForgotEmail(null); setResendPinSuccess(""); }}
                             className="text-[11px] text-slate-500 hover:text-black underline cursor-pointer font-semibold uppercase tracking-wider"
                           >
                             ← Volver a Iniciar Sesión
@@ -1283,10 +1401,11 @@ export default function CheckoutPage() {
                         <div className="flex gap-2 pt-1">
                           <button
                             type="button"
-                            onClick={() => { setForgotStep(1); setAuthError(""); setResendPinSuccess(""); }}
-                            className="w-1/2 border border-slate-300 bg-white text-black text-xs font-semibold uppercase tracking-wider py-3.5 rounded-xs hover:bg-slate-50 transition-colors cursor-pointer"
+                            onClick={handleResendForgotPin}
+                            disabled={authSubmitting || forgotCooldown > 0}
+                            className="w-1/2 border border-slate-300 bg-white text-black text-xs font-semibold uppercase tracking-wider py-3.5 rounded-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            Reenviar PIN
+                            {forgotCooldown > 0 ? `Reenviar (${forgotCooldown}s)` : "Reenviar PIN"}
                           </button>
                           <button
                             type="button"
@@ -1301,7 +1420,7 @@ export default function CheckoutPage() {
                         <div className="pt-1 text-center">
                           <button
                             type="button"
-                            onClick={() => { setAuthTab("login"); setForgotStep(1); setAuthError(""); setResendPinSuccess(""); }}
+                            onClick={() => { setAuthTab("login"); setForgotStep(1); setAuthError(""); setLastFailedForgotEmail(null); setResendPinSuccess(""); }}
                             className="text-[11px] text-slate-500 hover:text-black underline cursor-pointer font-semibold uppercase tracking-wider"
                           >
                             ← Cancelar y Volver a Iniciar Sesión

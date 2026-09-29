@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationPINCodeEmail } from "@/lib/email";
+import { checkPinRateLimit, recordPinAttempt } from "@/lib/rate-limiter";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,24 @@ export async function POST(req: NextRequest) {
 
     const cleanEmail = email.trim().toLowerCase();
 
+    // 1. Check if on cooldown or rate limited
+    const rateCheck = checkPinRateLimit(`resend:${cleanEmail}`, {
+      cooldownMs: 60 * 1000,
+      maxRequests: 5,
+      windowMs: 15 * 60 * 1000,
+    });
+
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: rateCheck.error || "Debes esperar antes de solicitar otro código.",
+          secondsRemaining: rateCheck.secondsRemaining,
+        },
+        { status: 429 }
+      );
+    }
+
+    // 2. Validate customer account existence
     const customerAccount = await prisma.customerAccount.findUnique({
       where: { email: cleanEmail },
     });
@@ -26,6 +45,9 @@ export async function POST(req: NextRequest) {
     if (customerAccount.email_verified) {
       return NextResponse.json({ error: "Esta cuenta ya se encuentra verificada. Puedes iniciar sesión." }, { status: 400 });
     }
+
+    // 3. Valid unverified account found -> commit attempt timestamp to rate limiter
+    recordPinAttempt(`resend:${cleanEmail}`);
 
     const pinCode = Math.floor(100000 + Math.random() * 900000).toString();
     const verificationExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 min

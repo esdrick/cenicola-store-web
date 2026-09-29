@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { checkPinRateLimit, recordPinAttempt } from "@/lib/rate-limiter";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,24 @@ export async function POST(req: NextRequest) {
 
     const cleanEmail = email.trim().toLowerCase();
 
+    // 1. Check if on cooldown or rate limited
+    const rateCheck = checkPinRateLimit(`forgot:${cleanEmail}`, {
+      cooldownMs: 60 * 1000,
+      maxRequests: 5,
+      windowMs: 15 * 60 * 1000,
+    });
+
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: rateCheck.error || "Debes esperar antes de solicitar otro código de recuperación.",
+          secondsRemaining: rateCheck.secondsRemaining,
+        },
+        { status: 429 }
+      );
+    }
+
+    // 2. Validate customer account existence
     const customerAccount = await prisma.customerAccount.findUnique({
       where: { email: cleanEmail },
     });
@@ -29,6 +48,9 @@ export async function POST(req: NextRequest) {
     if (!customerAccount.is_active) {
       return NextResponse.json({ error: "Cuenta desactivada. Contacta a soporte." }, { status: 403 });
     }
+
+    // 3. Valid account found -> commit attempt timestamp to rate limiter
+    recordPinAttempt(`forgot:${cleanEmail}`);
 
     // Generate 6-digit PIN code
     const resetPin = Math.floor(100000 + Math.random() * 900000).toString();

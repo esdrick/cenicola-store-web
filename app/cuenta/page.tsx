@@ -130,14 +130,33 @@ function AccountContent() {
   // Formulario de recuperación de contraseña (Forgot & Reset)
   const [forgotStep, setForgotStep] = useState<1 | 2>(1);
   const [forgotEmail, setForgotEmail] = useState("");
+  const [lastFailedForgotEmail, setLastFailedForgotEmail] = useState<string | null>(null);
   const [forgotPin, setForgotPin] = useState("");
   const [forgotNewPassword, setForgotNewPassword] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
   const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
+  const [forgotCooldown, setForgotCooldown] = useState(0);
+
+  // Cooldown de recuperación de contraseña
+  useEffect(() => {
+    if (forgotCooldown <= 0) {
+      if (forgotError && forgotError.includes("esperar")) {
+        setForgotError(null);
+      }
+      return;
+    }
+    const interval = setInterval(() => {
+      setForgotCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [forgotCooldown, forgotError]);
 
   const handleSendForgotPin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (forgotCooldown > 0) return;
+    if (lastFailedForgotEmail && lastFailedForgotEmail === forgotEmail.trim().toLowerCase()) return;
+
     setForgotLoading(true);
     setForgotError(null);
     setForgotSuccess(null);
@@ -145,13 +164,19 @@ function AccountContent() {
       const res = await fetch("/api/store/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: forgotEmail }),
+        body: JSON.stringify({ email: forgotEmail.trim() }),
       });
       const data = await res.json();
       if (!res.ok) {
         setForgotError(data.error || "Error al solicitar código de recuperación.");
+        setLastFailedForgotEmail(forgotEmail.trim().toLowerCase());
+        if (data.secondsRemaining) {
+          setForgotCooldown(data.secondsRemaining);
+        }
       } else {
         setForgotStep(2);
+        setForgotCooldown(60);
+        setLastFailedForgotEmail(null);
         setForgotSuccess(data.devPin ? `Código generado (PIN: ${data.devPin})` : "Ingresa el código PIN recibido en tu correo.");
       }
     } catch {
@@ -213,6 +238,21 @@ function AccountContent() {
   const [pinError, setPinError] = useState<string | null>(null);
   const [resendingPin, setResendingPin] = useState(false);
   const [resendPinSuccess, setResendPinSuccess] = useState<string | null>(null);
+  const [pinCooldown, setPinCooldown] = useState(0);
+
+  // Cooldown de reenvío de código PIN de verificación
+  useEffect(() => {
+    if (pinCooldown <= 0) {
+      if (pinError && pinError.includes("esperar")) {
+        setPinError(null);
+      }
+      return;
+    }
+    const interval = setInterval(() => {
+      setPinCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [pinCooldown, pinError]);
 
   useEffect(() => {
     fetchProfileAndOrders();
@@ -279,6 +319,7 @@ function AccountContent() {
         if (data.requiresVerification || data.require_pin) {
           setPinEmail(loginEmail.trim());
           setShowPinStep(true);
+          setPinCooldown(60);
           setLoginError(null);
           setPinError(null);
           setPinCode("");
@@ -292,6 +333,7 @@ function AccountContent() {
       if (data.requiresVerification || data.require_pin) {
         setPinEmail(loginEmail.trim());
         setShowPinStep(true);
+        setPinCooldown(60);
         setPinError(null);
         setPinCode("");
       } else {
@@ -305,7 +347,7 @@ function AccountContent() {
   };
 
   const handleResendPin = async () => {
-    if (!pinEmail) return;
+    if (!pinEmail || pinCooldown > 0) return;
     setResendingPin(true);
     setResendPinSuccess(null);
     setPinError(null);
@@ -319,7 +361,11 @@ function AccountContent() {
       const data = await res.json();
       if (!res.ok) {
         setPinError(data.error || "Error al reenviar el código PIN");
+        if (data.secondsRemaining) {
+          setPinCooldown(data.secondsRemaining);
+        }
       } else {
+        setPinCooldown(60);
         setResendPinSuccess(data.message || "Un nuevo código PIN ha sido enviado a tu correo");
         setPinCode("");
       }
@@ -370,6 +416,7 @@ function AccountContent() {
 
       setPinEmail(regEmail.trim());
       setShowPinStep(true);
+      setPinCooldown(60);
       setPinCode("");
     } catch {
       setRegError("Error de conexión al registrar cuenta.");
@@ -655,7 +702,9 @@ function AccountContent() {
 
                       {pinError && (
                         <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xs text-center font-medium">
-                          {pinError}
+                          {pinError.includes("esperar") && pinCooldown > 0
+                            ? `Debes esperar ${pinCooldown}s antes de solicitar otro código.`
+                            : pinError}
                         </div>
                       )}
 
@@ -699,10 +748,14 @@ function AccountContent() {
                         <button
                           type="button"
                           onClick={handleResendPin}
-                          disabled={resendingPin}
-                          className="text-[11px] text-slate-500 hover:text-black font-semibold uppercase tracking-wider underline transition-colors cursor-pointer disabled:opacity-50"
+                          disabled={resendingPin || pinCooldown > 0}
+                          className="text-[11px] text-slate-500 hover:text-black font-semibold uppercase tracking-wider underline transition-colors cursor-pointer disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
                         >
-                          {resendingPin ? "Reenviando Código..." : "¿No recibiste el PIN? Reenviar Código"}
+                          {resendingPin
+                            ? "Reenviando Código..."
+                            : pinCooldown > 0
+                            ? `Reenviar código en ${pinCooldown}s`
+                            : "¿No recibiste el PIN? Reenviar Código"}
                         </button>
                       </div>
                     </form>
@@ -927,7 +980,15 @@ function AccountContent() {
 
                       {pinError && (
                         <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xs text-center font-medium">
-                          {pinError}
+                          {pinError.includes("esperar") && pinCooldown > 0
+                            ? `Debes esperar ${pinCooldown}s antes de solicitar otro código.`
+                            : pinError}
+                        </div>
+                      )}
+
+                      {resendPinSuccess && (
+                        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xs text-center font-medium">
+                          {resendPinSuccess}
                         </div>
                       )}
 
@@ -960,6 +1021,21 @@ function AccountContent() {
                           {pinSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirmar PIN"}
                         </button>
                       </div>
+
+                      <div className="text-center pt-1">
+                        <button
+                          type="button"
+                          onClick={handleResendPin}
+                          disabled={resendingPin || pinCooldown > 0}
+                          className="text-[11px] text-slate-500 hover:text-black font-semibold uppercase tracking-wider underline transition-colors cursor-pointer disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
+                        >
+                          {resendingPin
+                            ? "Reenviando Código..."
+                            : pinCooldown > 0
+                            ? `Reenviar código en ${pinCooldown}s`
+                            : "¿No recibiste el PIN? Reenviar Código"}
+                        </button>
+                      </div>
                     </form>
                   )}
                 </div>
@@ -989,7 +1065,11 @@ function AccountContent() {
                     <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xs space-y-1">
                       <div className="flex items-center gap-2">
                         <XCircle className="w-4 h-4 shrink-0" />
-                        <span>{forgotError}</span>
+                        <span>
+                          {forgotError.includes("esperar") && forgotCooldown > 0
+                            ? `Debes esperar ${forgotCooldown}s antes de solicitar otro código.`
+                            : forgotError}
+                        </span>
                       </div>
                       {forgotError.includes("No encontramos ninguna cuenta") && (
                         <button
@@ -1024,26 +1104,43 @@ function AccountContent() {
                           type="email"
                           required
                           value={forgotEmail}
-                          onChange={(e) => setForgotEmail(e.target.value)}
+                          onChange={(e) => {
+                            setForgotEmail(e.target.value);
+                            if (forgotError) setForgotError(null);
+                            if (lastFailedForgotEmail) setLastFailedForgotEmail(null);
+                          }}
                           placeholder="nombre@ejemplo.com"
                           className="w-full px-3.5 py-2.5 text-xs text-black border border-slate-300 focus:outline-none focus:border-black rounded-xs bg-white placeholder:text-slate-400 font-mono"
                         />
                       </div>
 
-                      <button
-                        type="submit"
-                        disabled={forgotLoading}
-                        className="w-full bg-black text-white py-3.5 px-4 text-xs font-semibold uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 rounded-xs cursor-pointer disabled:opacity-50 mt-2"
-                      >
-                        {forgotLoading ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Enviando Código...</span>
-                          </>
-                        ) : (
-                          "Enviar Código de Recuperación"
-                        )}
-                      </button>
+                      {(() => {
+                        const isEmailUnchangedAfterError = Boolean(
+                          lastFailedForgotEmail &&
+                          forgotEmail.trim().toLowerCase() === lastFailedForgotEmail
+                        );
+
+                        return (
+                          <button
+                            type="submit"
+                            disabled={forgotLoading || forgotCooldown > 0 || isEmailUnchangedAfterError}
+                            className="w-full bg-black text-white py-3.5 px-4 text-xs font-semibold uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 rounded-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                          >
+                            {forgotLoading ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Enviando Código...</span>
+                              </>
+                            ) : forgotCooldown > 0 ? (
+                              `Esperar para solicitar (${forgotCooldown}s)`
+                            ) : isEmailUnchangedAfterError ? (
+                              "Modifica el correo para reintentar"
+                            ) : (
+                              "Enviar Código de Recuperación"
+                            )}
+                          </button>
+                        );
+                      })()}
                     </form>
                   ) : (
                     <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
@@ -1079,10 +1176,11 @@ function AccountContent() {
                       <div className="flex gap-2 pt-1">
                         <button
                           type="button"
-                          onClick={() => setForgotStep(1)}
-                          className="w-1/2 border border-slate-300 bg-white text-black text-xs font-semibold uppercase tracking-wider py-3.5 rounded-xs hover:bg-slate-50 transition-colors cursor-pointer"
+                          onClick={handleSendForgotPin}
+                          disabled={forgotLoading || forgotCooldown > 0}
+                          className="w-1/2 border border-slate-300 bg-white text-black text-xs font-semibold uppercase tracking-wider py-3.5 rounded-xs hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Reenviar PIN
+                          {forgotCooldown > 0 ? `Reenviar (${forgotCooldown}s)` : "Reenviar PIN"}
                         </button>
                         <button
                           type="submit"

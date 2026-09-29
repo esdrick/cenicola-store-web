@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { sendVerificationPINCodeEmail } from "@/lib/email";
 import { validateEmailDomain } from "@/lib/email-validator";
+import { recordPinAttempt } from "@/lib/rate-limiter";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +118,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Send email PIN code
+    recordPinAttempt(`resend:${cleanEmail}`);
     const emailRes = await sendVerificationPINCodeEmail(customerAccount.name, cleanEmail, pinCode).catch((err) => ({
       success: false,
       error: err instanceof Error ? err.message : String(err),
