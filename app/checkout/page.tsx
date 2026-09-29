@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import SafeImage from "@/components/ui/SafeImage";
 import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
@@ -10,6 +10,7 @@ import StoreNavbar from "@/components/store/StoreNavbar";
 import StoreFooter from "@/components/store/StoreFooter";
 import SearchDrawer from "@/components/store/SearchDrawer";
 import CartDrawer from "@/components/store/CartDrawer";
+import StockIssueModal, { type AffectedStockItem } from "@/components/store/StockIssueModal";
 import OrderSuccessView, { type OrderSuccessData } from "@/components/store/OrderSuccessView";
 import {
   ArrowLeft,
@@ -135,6 +136,55 @@ export default function CheckoutPage() {
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [orderError, setOrderError] = useState("");
   const [completedOrderData, setCompletedOrderData] = useState<OrderSuccessData | null>(null);
+
+  // Stock Issue Popup Modal State
+  const [stockModalOpen, setStockModalOpen] = useState(false);
+  const [hasAutoOpenedModal, setHasAutoOpenedModal] = useState(false);
+
+  // Compute affected stock items
+  const affectedStockItems: AffectedStockItem[] = useMemo(() => {
+    if (!cart || cart.length === 0) return [];
+    const items: AffectedStockItem[] = [];
+    for (const item of cart) {
+      const stockCheck = getItemStockStatus(item.variant_id);
+      if (!stockCheck) continue;
+      const isOutOfStock =
+        stockCheck.status === "out_of_stock" ||
+        stockCheck.status === "inactive" ||
+        stockCheck.status === "not_found" ||
+        stockCheck.available_stock <= 0;
+      const isInsufficientStock = stockCheck.status === "insufficient_stock";
+
+      if (isOutOfStock || isInsufficientStock) {
+        items.push({
+          variant_id: item.variant_id,
+          name: item.name || stockCheck.name || "Prenda",
+          size: item.size || stockCheck.size || "",
+          color: item.color || stockCheck.color,
+          photo: item.photo || stockCheck.photo,
+          requested_quantity: item.quantity,
+          available_stock: stockCheck.available_stock,
+          is_out_of_stock: isOutOfStock,
+          is_insufficient_stock: isInsufficientStock,
+        });
+      }
+    }
+    return items;
+  }, [cart, getItemStockStatus]);
+
+  // Auto-sync stock modal state: open when stock issues appear, close when resolved
+  useEffect(() => {
+    if ((hasOutOfStock || hasInsufficientStock) && affectedStockItems.length > 0) {
+      if (!hasAutoOpenedModal) {
+        setStockModalOpen(true);
+        setHasAutoOpenedModal(true);
+      }
+    } else {
+      if (stockModalOpen) {
+        setStockModalOpen(false);
+      }
+    }
+  }, [hasOutOfStock, hasInsufficientStock, affectedStockItems.length, hasAutoOpenedModal, stockModalOpen]);
 
   // Check Auth & BCV Rate, Validate Stock
   useEffect(() => {
@@ -499,13 +549,8 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (hasOutOfStock) {
-      setOrderError("Hay prendas agotadas en tu pedido. Por favor elimínalas para continuar.");
-      return;
-    }
-
-    if (hasInsufficientStock) {
-      setOrderError("Algunas prendas superan el stock disponible. Por favor ajusta las cantidades para continuar.");
+    if (hasOutOfStock || hasInsufficientStock) {
+      setStockModalOpen(true);
       return;
     }
 
@@ -632,13 +677,8 @@ export default function CheckoutPage() {
 
   // WhatsApp Order Submission
   const handleSendWhatsApp = () => {
-    if (hasOutOfStock) {
-      alert("Hay prendas agotadas en tu pedido. Por favor elimínalas antes de enviar por WhatsApp.");
-      return;
-    }
-
-    if (hasInsufficientStock) {
-      alert("Algunas prendas superan el stock disponible. Por favor ajusta las cantidades antes de enviar.");
+    if (hasOutOfStock || hasInsufficientStock) {
+      setStockModalOpen(true);
       return;
     }
 
@@ -1696,170 +1736,204 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* Visualización de Datos de Pago — Estilo Minimalista (Sin tarjetas anidadas) */}
-            {isAuthenticated && !selectedPaymentType.includes("Efectivo") && (
-              <div className="pt-2 space-y-4 border-t border-slate-100">
-                <div className="space-y-3 text-xs">
-                  <span className="text-[11px] font-semibold text-black uppercase tracking-wider block">
-                    DATOS DE PAGO ({selectedPaymentType.toUpperCase()}):
-                  </span>
-
-                  {banksLoading ? (
-                    <div className="py-2 text-slate-400 flex items-center gap-2 text-xs">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando datos...
+            {/* Visualización de Datos de Pago — Estilo Minimalista Lefties/Zara */}
+            {isAuthenticated && (
+              hasOutOfStock || hasInsufficientStock ? (
+                <div className="pt-3 border-t border-slate-100">
+                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-xs text-xs space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-black">
+                      Datos de pago no disponibles
+                    </p>
+                    <p className="text-slate-500 text-xs leading-relaxed">
+                      {hasOutOfStock
+                        ? "Tu cesta contiene prendas agotadas. Elimínalas en el resumen para visualizar los datos de pago y realizar la transferencia."
+                        : "Algunas prendas superan las unidades disponibles. Ajusta las cantidades en el resumen para visualizar los datos de pago."}
+                    </p>
+                    <div className="pt-1 flex flex-wrap items-center gap-3">
+                      {hasOutOfStock ? (
+                        <button
+                          type="button"
+                          onClick={removeOutOfStockItems}
+                          className="text-[10px] uppercase tracking-widest font-semibold text-black underline hover:opacity-60 transition-opacity cursor-pointer"
+                        >
+                          Eliminar prendas agotadas
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={adjustQuantitiesToAvailableStock}
+                          className="text-[10px] uppercase tracking-widest font-semibold text-black underline hover:opacity-60 transition-opacity cursor-pointer"
+                        >
+                          Ajustar cantidades al máximo
+                        </button>
+                      )}
                     </div>
-                  ) : matchingBankAccounts.length > 0 ? (
-                    <div className="divide-y divide-slate-100 border-t border-b border-slate-200 py-1">
-                      {matchingBankAccounts.map((bank) => (
-                        <div key={bank.id} className="py-3 space-y-1.5">
-                          <p className="font-bold text-black uppercase tracking-wider text-xs">
-                            {bank.bank_name}
-                          </p>
+                  </div>
+                </div>
+              ) : !selectedPaymentType.includes("Efectivo") ? (
+                <div className="pt-2 space-y-4 border-t border-slate-100">
+                  <div className="space-y-3 text-xs">
+                    <span className="text-[11px] font-semibold text-black uppercase tracking-wider block">
+                      DATOS DE PAGO ({selectedPaymentType.toUpperCase()}):
+                    </span>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-slate-700 text-xs pt-0.5">
-                            {bank.account_name && (
-                              <p>
-                                <span className="text-slate-400 uppercase text-[10px] tracking-wider font-semibold block">TITULAR:</span>
-                                <span className="font-medium text-black">{bank.account_name}</span>
-                              </p>
-                            )}
-                            {bank.id_number && (
-                              <p>
-                                <span className="text-slate-400 uppercase text-[10px] tracking-wider font-semibold block">CÉDULA / RIF:</span>
-                                <span className="font-mono text-black font-semibold">{bank.id_number}</span>
-                              </p>
-                            )}
-                            {bank.phone_number && (
-                              <p>
-                                <span className="text-slate-400 uppercase text-[10px] tracking-wider font-semibold block">TELÉFONO PAGO MÓVIL:</span>
-                                <span className="font-mono text-black font-semibold">{bank.phone_number}</span>
-                              </p>
-                            )}
-                            {bank.email && (
-                              <p>
-                                <span className="text-slate-400 uppercase text-[10px] tracking-wider font-semibold block">CORREO DE PAGO:</span>
-                                <span className="font-mono text-black">{bank.email}</span>
-                              </p>
-                            )}
-                            {bank.account_num && (
-                              <p className="sm:col-span-2">
-                                <span className="text-slate-400 uppercase text-[10px] tracking-wider font-semibold block">NÚMERO DE CUENTA:</span>
-                                <span className="font-mono text-black font-semibold text-xs tracking-wider">{bank.account_num}</span>
+                    {banksLoading ? (
+                      <div className="py-2 text-slate-400 flex items-center gap-2 text-xs">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando datos...
+                      </div>
+                    ) : matchingBankAccounts.length > 0 ? (
+                      <div className="divide-y divide-slate-100 border-t border-b border-slate-200 py-1">
+                        {matchingBankAccounts.map((bank) => (
+                          <div key={bank.id} className="py-3 space-y-1.5">
+                            <p className="font-bold text-black uppercase tracking-wider text-xs">
+                              {bank.bank_name}
+                            </p>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-slate-700 text-xs pt-0.5">
+                              {bank.account_name && (
+                                <p>
+                                  <span className="text-slate-400 uppercase text-[10px] tracking-wider font-semibold block">TITULAR:</span>
+                                  <span className="font-medium text-black">{bank.account_name}</span>
+                                </p>
+                              )}
+                              {bank.id_number && (
+                                <p>
+                                  <span className="text-slate-400 uppercase text-[10px] tracking-wider font-semibold block">CÉDULA / RIF:</span>
+                                  <span className="font-mono text-black font-semibold">{bank.id_number}</span>
+                                </p>
+                              )}
+                              {bank.phone_number && (
+                                <p>
+                                  <span className="text-slate-400 uppercase text-[10px] tracking-wider font-semibold block">TELÉFONO PAGO MÓVIL:</span>
+                                  <span className="font-mono text-black font-semibold">{bank.phone_number}</span>
+                                </p>
+                              )}
+                              {bank.email && (
+                                <p>
+                                  <span className="text-slate-400 uppercase text-[10px] tracking-wider font-semibold block">CORREO DE PAGO:</span>
+                                  <span className="font-mono text-black">{bank.email}</span>
+                                </p>
+                              )}
+                              {bank.account_num && (
+                                <p className="sm:col-span-2">
+                                  <span className="text-slate-400 uppercase text-[10px] tracking-wider font-semibold block">NÚMERO DE CUENTA:</span>
+                                  <span className="font-mono text-black font-semibold text-xs tracking-wider">{bank.account_num}</span>
+                                </p>
+                              )}
+                            </div>
+
+                            {bank.notes && (
+                              <p className="text-[11px] text-slate-500 pt-1 leading-relaxed">
+                                {bank.notes}
                               </p>
                             )}
                           </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-slate-500 italic text-xs">
+                        Transfiere el monto exacto antes de ingresar el número de referencia.
+                      </p>
+                    )}
+                  </div>
 
-                          {bank.notes && (
-                            <p className="text-[11px] text-slate-500 pt-1 leading-relaxed">
-                              {bank.notes}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-slate-500 italic text-xs">
-                      Transfiere el monto exacto antes de ingresar el número de referencia.
-                    </p>
-                  )}
-                </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    {selectedPaymentType.toLowerCase().includes("zelle") && (
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] uppercase tracking-wider text-black font-semibold mb-1">
+                          Nombre y Apellido del Titular de la Cuenta Zelle *
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={100}
+                          value={zelleHolderName}
+                          onChange={(e) => setZelleHolderName(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white"
+                          placeholder="Ej. Carlos Pérez / Maria Rodriguez"
+                          required
+                        />
+                      </div>
+                    )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                  {selectedPaymentType.toLowerCase().includes("zelle") && (
-                    <div className="sm:col-span-2">
-                      <label className="block text-[11px] uppercase tracking-wider text-black font-semibold mb-1">
-                        Nombre y Apellido del Titular de la Cuenta Zelle *
+                    <div>
+                      <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">
+                        {selectedPaymentType.toLowerCase().includes("zelle") ? "N° de Referencia de Pago (6 a 20 dígitos) *" : "Últimos 8 dígitos de la referencia *"}
                       </label>
                       <input
                         type="text"
-                        maxLength={100}
-                        value={zelleHolderName}
-                        onChange={(e) => setZelleHolderName(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black rounded-xs bg-white"
-                        placeholder="Ej. Carlos Pérez / Maria Rodriguez"
-                        required
+                        maxLength={selectedPaymentType.toLowerCase().includes("zelle") ? 20 : 8}
+                        value={reference}
+                        onChange={(e) => setReference(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black font-mono font-semibold rounded-xs bg-white"
+                        placeholder={selectedPaymentType.toLowerCase().includes("zelle") ? "Ej. 1234567890" : "Ej. 12345678"}
+                        required={!selectedPaymentType.includes("Efectivo")}
                       />
                     </div>
-                  )}
 
-                  <div>
-                    <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">
-                      {selectedPaymentType.toLowerCase().includes("zelle") ? "N° de Referencia de Pago (6 a 20 dígitos) *" : "Últimos 8 dígitos de la referencia *"}
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={selectedPaymentType.toLowerCase().includes("zelle") ? 20 : 8}
-                      value={reference}
-                      onChange={(e) => setReference(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 text-xs text-black focus:outline-none focus:border-black font-mono font-semibold rounded-xs bg-white"
-                      placeholder={selectedPaymentType.toLowerCase().includes("zelle") ? "Ej. 1234567890" : "Ej. 12345678"}
-                      required={!selectedPaymentType.includes("Efectivo")}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">
-                      Foto / Captura del Comprobante *
-                    </label>
-
-                    <input
-                      type="file"
-                      id="comprobante-file-input"
-                      accept="image/*"
-                      onChange={handlePhotoFileChange}
-                      disabled={uploadingPhoto}
-                      className="hidden"
-                    />
-
-                    {paymentPhoto ? (
-                      <div className="flex items-center gap-3 bg-slate-50 p-2 border border-slate-200 rounded-xs">
-                        <div className="relative w-12 h-12 bg-white rounded-xs overflow-hidden shrink-0 border border-slate-200">
-                          <Image src={getOptimizedCloudinaryUrl(paymentPhoto, 400)} alt="Comprobante" fill className="object-cover" loading="lazy" unoptimized />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">
-                            ✓ Comprobante Adjuntado
-                          </p>
-                          <p className="text-[9px] text-slate-400 truncate font-mono">
-                            {paymentPhoto}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setPaymentPhoto("")}
-                          className="p-1.5 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
-                          title="Eliminar comprobante"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <label
-                        htmlFor="comprobante-file-input"
-                        className={`w-full py-2.5 px-3 border border-dashed border-slate-300 hover:border-black text-xs font-normal text-slate-600 hover:text-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors rounded-xs bg-white ${
-                          uploadingPhoto ? "opacity-50 cursor-not-allowed" : ""
-                        }`}
-                      >
-                        {uploadingPhoto ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin text-black" />
-                            <span>Subiendo comprobante...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Camera className="w-4 h-4 text-black" />
-                            <span>Subir Captura de Pantalla / Foto</span>
-                          </>
-                        )}
+                    <div>
+                      <label className="block text-[11px] uppercase tracking-wider text-black font-normal mb-1">
+                        Foto / Captura del Comprobante *
                       </label>
-                    )}
 
-                        {uploadError && (
-                          <p className="text-[10px] text-red-600 font-semibold pt-1">{uploadError}</p>
-                        )}
-                      </div>
+                      <input
+                        type="file"
+                        id="comprobante-file-input"
+                        accept="image/*"
+                        onChange={handlePhotoFileChange}
+                        disabled={uploadingPhoto}
+                        className="hidden"
+                      />
+
+                      {paymentPhoto ? (
+                        <div className="flex items-center gap-3 bg-slate-50 p-2 border border-slate-200 rounded-xs">
+                          <div className="relative w-12 h-12 bg-white rounded-xs overflow-hidden shrink-0 border border-slate-200">
+                            <Image src={getOptimizedCloudinaryUrl(paymentPhoto, 400)} alt="Comprobante" fill className="object-cover" loading="lazy" unoptimized />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">
+                              ✓ Comprobante Adjuntado
+                            </p>
+                            <p className="text-[9px] text-slate-400 truncate font-mono">
+                              {paymentPhoto}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setPaymentPhoto("")}
+                            className="p-1.5 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                            title="Eliminar comprobante"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label
+                          htmlFor="comprobante-file-input"
+                          className={`w-full py-2.5 px-3 border border-dashed border-slate-300 hover:border-black text-xs font-normal text-slate-600 hover:text-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors rounded-xs bg-white ${
+                            uploadingPhoto ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                        >
+                          {uploadingPhoto ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin text-black" />
+                              <span>Subiendo comprobante...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Camera className="w-4 h-4 text-black" />
+                              <span>Subir Captura de Pantalla / Foto</span>
+                            </>
+                          )}
+                        </label>
+                      )}
+
+                      {uploadError && (
+                        <p className="text-[10px] text-red-600 font-semibold pt-1">{uploadError}</p>
+                      )}
                     </div>
-              </div>
+                  </div>
+                </div>
+              ) : null
             )}
           </section>
 
@@ -1889,28 +1963,28 @@ export default function CheckoutPage() {
               <div className="space-y-1.5">
                 <button
                   type="button"
-                  disabled
-                  className="w-full py-4 px-6 text-xs uppercase tracking-widest flex items-center justify-center gap-2 rounded-xs font-semibold bg-slate-200 text-slate-400 cursor-not-allowed select-none"
+                  onClick={() => setStockModalOpen(true)}
+                  className="w-full py-4 px-6 text-xs uppercase tracking-widest flex items-center justify-center gap-2 rounded-xs font-semibold bg-black hover:bg-slate-800 text-white transition-all cursor-pointer shadow-xs active:scale-[0.99]"
                 >
-                  <CheckCircle2 className="w-4 h-4 text-slate-400" />
-                  <span>Completar pedido</span>
+                  <AlertCircle className="w-4 h-4 text-white" />
+                  <span>Eliminar prendas agotadas</span>
                 </button>
                 <p className="text-[10px] text-slate-400 text-center uppercase tracking-wider font-normal">
-                  Elimina las prendas agotadas en el resumen para continuar
+                  Haz clic para ver y eliminar los artículos agotados
                 </p>
               </div>
             ) : hasInsufficientStock ? (
               <div className="space-y-1.5">
                 <button
                   type="button"
-                  disabled
-                  className="w-full py-4 px-6 text-xs uppercase tracking-widest flex items-center justify-center gap-2 rounded-xs font-semibold bg-slate-200 text-slate-400 cursor-not-allowed select-none"
+                  onClick={() => setStockModalOpen(true)}
+                  className="w-full py-4 px-6 text-xs uppercase tracking-widest flex items-center justify-center gap-2 rounded-xs font-semibold bg-black hover:bg-slate-800 text-white transition-all cursor-pointer shadow-xs active:scale-[0.99]"
                 >
-                  <CheckCircle2 className="w-4 h-4 text-slate-400" />
-                  <span>Completar pedido</span>
+                  <AlertCircle className="w-4 h-4 text-white" />
+                  <span>Ajustar stock disponible</span>
                 </button>
                 <p className="text-[10px] text-slate-400 text-center uppercase tracking-wider font-normal">
-                  Ajusta las cantidades disponibles en el resumen para continuar
+                  Haz clic para ajustar las cantidades disponibles
                 </p>
               </div>
             ) : (
@@ -1964,6 +2038,17 @@ export default function CheckoutPage() {
         </form>
       </main>
       )}
+
+      <StockIssueModal
+        isOpen={stockModalOpen}
+        onClose={() => setStockModalOpen(false)}
+        affectedItems={affectedStockItems}
+        hasOutOfStock={hasOutOfStock}
+        hasInsufficientStock={hasInsufficientStock}
+        onRemoveOutOfStock={removeOutOfStockItems}
+        onAdjustQuantities={adjustQuantitiesToAvailableStock}
+        onOpenCart={openCart}
+      />
 
       <SearchDrawer
         isOpen={searchDrawerOpen}
