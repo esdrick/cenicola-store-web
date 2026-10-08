@@ -136,42 +136,119 @@ export async function GET(request: NextRequest) {
       const normQ = normalizeText(search.trim());
       const rawTerms = normQ.split(/\s+/).filter(Boolean);
 
-      const terms: string[] = [];
-      for (const t of rawTerms) {
-        terms.push(t);
-        if (["camisetas", "camiseta", "camisa", "camisas"].includes(t)) {
-          terms.push("camiseta", "camis", "top", "franela", "remera");
-        } else if (["pantalones", "pantalon", "shorts", "short"].includes(t)) {
-          terms.push("pantalon", "short", "legging", "jogger", "bermuda", "mono");
+      const getTermSynonyms = (t: string): string[] => {
+        const syns = new Set<string>([t]);
+        if (["camisetas", "camiseta", "camisa", "camisas", "franela", "franelas", "remera", "remeras", "top", "tops"].includes(t)) {
+          ["camiseta", "camisetas", "camisa", "camisas", "franela", "franelas", "remera", "top"].forEach((s) => syns.add(s));
+        } else if (["pantalones", "pantalon", "shorts", "short", "legging", "leggings", "jogger", "joggers", "bermuda", "bermudas", "mono", "monos"].includes(t)) {
+          ["pantalon", "pantalones", "short", "shorts", "legging", "jogger", "bermuda", "mono"].forEach((s) => syns.add(s));
         } else if (["basicas", "basica", "basicos", "basico"].includes(t)) {
-          terms.push("basica", "basico", "franela");
-        } else if (["mujer", "damas", "dama", "chica", "chicas"].includes(t)) {
-          terms.push("mujer", "dama", "damas", "chica");
-        } else if (["hombre", "caballeros", "caballero", "chico", "chicos"].includes(t)) {
-          terms.push("hombre", "caballero", "caballeros", "chico");
-        } else if (t === "nino") {
-          terms.push("nino");
-        } else if (t === "nina") {
-          terms.push("nina");
-        } else if (["ninos", "ninas", "infantil"].includes(t)) {
-          terms.push("nino", "nina", "infantil");
+          ["basica", "basico", "franela"].forEach((s) => syns.add(s));
+        } else if (["mujer", "damas", "dama", "chica", "chicas", "femenino"].includes(t)) {
+          ["mujer", "dama", "damas", "chica", "chicas"].forEach((s) => syns.add(s));
+        } else if (["hombre", "caballeros", "caballero", "chico", "chicos", "masculino"].includes(t)) {
+          ["hombre", "caballero", "caballeros", "chico", "chicos"].forEach((s) => syns.add(s));
+        } else if (["nino", "ninos", "infantil", "nene", "kids"].includes(t)) {
+          ["nino", "ninos", "infantil"].forEach((s) => syns.add(s));
+        } else if (["nina", "ninas"].includes(t)) {
+          ["nina", "ninas", "infantil"].forEach((s) => syns.add(s));
         }
-      }
+        return Array.from(syns);
+      };
 
-      products = products.filter((p) => {
+      const scoredProducts: Array<{
+        product: (typeof products)[0];
+        score: number;
+        matchedTermsCount: number;
+      }> = [];
+
+      for (const p of products) {
         const nameNorm = normalizeText(p.name);
         const typeNorm = p.type ? normalizeText(p.type) : "";
         const colorNorm = p.color ? normalizeText(p.color) : "";
         const descNorm = p.description ? normalizeText(p.description) : "";
+        const variantsNorm = p.variants
+          .map((v) => `${normalizeText(v.size)} ${normalizeText(v.sku)}`)
+          .join(" ");
+        const fullTextNorm = `${nameNorm} ${typeNorm} ${colorNorm} ${descNorm} ${variantsNorm}`;
 
-        return terms.some((term) =>
-          nameNorm.includes(term) ||
-          typeNorm.includes(term) ||
-          colorNorm.includes(term) ||
-          descNorm.includes(term) ||
-          p.variants.some((v) => normalizeText(v.size).includes(term) || normalizeText(v.sku).includes(term))
-        );
-      });
+        let score = 0;
+        let matchedTermsCount = 0;
+
+        // Exact full phrase bonus
+        if (nameNorm === normQ) {
+          score += 10000;
+        } else if (nameNorm.includes(normQ)) {
+          score += 5000;
+        } else if (fullTextNorm.includes(normQ)) {
+          score += 3000;
+        }
+
+        for (const rawTerm of rawTerms) {
+          const synonyms = getTermSynonyms(rawTerm);
+          let termMatched = false;
+          let termBestScore = 0;
+
+          for (const syn of synonyms) {
+            const isDirect = syn === rawTerm;
+
+            if (nameNorm.includes(syn)) {
+              termMatched = true;
+              const isWord = new RegExp(`\\b${syn}\\b`, "i").test(nameNorm);
+              const pts = (isDirect ? 200 : 100) + (isWord ? 50 : 0);
+              termBestScore = Math.max(termBestScore, pts);
+            }
+            if (colorNorm.includes(syn)) {
+              termMatched = true;
+              const pts = isDirect ? 150 : 80;
+              termBestScore = Math.max(termBestScore, pts);
+            }
+            if (typeNorm.includes(syn)) {
+              termMatched = true;
+              const pts = isDirect ? 120 : 60;
+              termBestScore = Math.max(termBestScore, pts);
+            }
+            if (variantsNorm.includes(syn)) {
+              termMatched = true;
+              termBestScore = Math.max(termBestScore, 40);
+            }
+            if (descNorm.includes(syn)) {
+              termMatched = true;
+              termBestScore = Math.max(termBestScore, 20);
+            }
+          }
+
+          if (termMatched) {
+            matchedTermsCount++;
+            score += termBestScore;
+          }
+        }
+
+        if (matchedTermsCount > 0) {
+          if (matchedTermsCount === rawTerms.length) {
+            score += 2000 * rawTerms.length;
+          } else {
+            score += Math.round((matchedTermsCount / rawTerms.length) * 500);
+          }
+
+          scoredProducts.push({ product: p, score, matchedTermsCount });
+        }
+      }
+
+      const maxTermsMatched =
+        scoredProducts.length > 0
+          ? Math.max(...scoredProducts.map((sp) => sp.matchedTermsCount))
+          : 0;
+
+      let filteredScored = scoredProducts;
+      if (rawTerms.length >= 2 && maxTermsMatched >= 2) {
+        const minTermsToKeep =
+          maxTermsMatched === rawTerms.length ? Math.max(2, rawTerms.length - 1) : maxTermsMatched;
+        filteredScored = scoredProducts.filter((sp) => sp.matchedTermsCount >= minTermsToKeep);
+      }
+
+      filteredScored.sort((a, b) => b.score - a.score);
+      products = filteredScored.map((sp) => sp.product);
     }
 
     // Query sibling colors for all matched products

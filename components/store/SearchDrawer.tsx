@@ -30,11 +30,16 @@ export default function SearchDrawer({ isOpen, onClose, onSearchSubmit }: Search
 
   useEffect(() => {
     if (isOpen) {
+      document.body.style.overflow = "hidden";
       setTimeout(() => inputRef.current?.focus(), 100);
     } else {
+      document.body.style.overflow = "";
       setQuery("");
       setResults([]);
     }
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [isOpen]);
 
   useEffect(() => {
@@ -49,7 +54,7 @@ export default function SearchDrawer({ isOpen, onClose, onSearchSubmit }: Search
         .then((res) => res.json())
         .then((data) => {
           if (data.data) {
-            setResults(data.data.slice(0, 6)); // Top 6 matching items
+            setResults(data.data.slice(0, 12)); // Top 12 matching items
           }
           setLoading(false);
         })
@@ -70,18 +75,18 @@ export default function SearchDrawer({ isOpen, onClose, onSearchSubmit }: Search
   };
 
   return (
-    <div className="fixed inset-0 z-50 font-sans overflow-hidden">
+    <div className="fixed inset-0 z-50 font-sans flex flex-col justify-start">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40 transition-opacity duration-300"
+        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-300"
         onClick={onClose}
       />
 
-      {/* Slide-down Top Panel (Lefties Search Style) */}
-      <div className="relative bg-white text-black shadow-2xl border-b border-slate-200 w-full animate-in slide-in-from-top duration-300">
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-8">
-          {/* Top Row: Search Input & Close Button */}
-          <div className="flex items-center justify-between pb-4 border-b border-slate-900">
+      {/* Slide-down Top Panel */}
+      <div className="relative z-10 bg-white text-black shadow-2xl border-b border-slate-200 w-full max-h-[90dvh] sm:max-h-[85vh] flex flex-col animate-in slide-in-from-top duration-300">
+        {/* Top Header Row: Search Input & Close Button (Fixed at top of panel) */}
+        <div className="shrink-0 border-b border-slate-900 bg-white">
+          <div className="max-w-6xl mx-auto px-4 sm:px-8 py-4 sm:py-6 flex items-center justify-between gap-3">
             <form onSubmit={handleSubmit} className="flex-1 flex items-center gap-3">
               <Search className="w-5 h-5 text-black stroke-[1.5] shrink-0" />
               <input
@@ -97,15 +102,17 @@ export default function SearchDrawer({ isOpen, onClose, onSearchSubmit }: Search
             <button
               type="button"
               onClick={onClose}
-              className="w-9 h-9 rounded-full border border-slate-300 text-black flex items-center justify-center hover:border-black hover:bg-slate-100 transition-colors ml-4 shrink-0"
+              className="w-9 h-9 rounded-full border border-slate-300 text-black flex items-center justify-center hover:border-black hover:bg-slate-100 transition-colors ml-2 sm:ml-4 shrink-0"
               aria-label="Cerrar búsqueda"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
+        </div>
 
-          {/* Quick Categories / Search Results Container */}
-          <div className="pt-6">
+        {/* Scrollable Results Container */}
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          <div className="max-w-6xl mx-auto px-4 sm:px-8 py-5 sm:py-6">
             {!query.trim() ? (
               <div className="space-y-3">
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 block">
@@ -125,11 +132,11 @@ export default function SearchDrawer({ isOpen, onClose, onSearchSubmit }: Search
                 </div>
               </div>
             ) : loading ? (
-              <div className="py-8 text-center text-xs font-normal uppercase tracking-wider text-slate-400">
+              <div className="py-12 text-center text-xs font-normal uppercase tracking-wider text-slate-400">
                 Buscando prendas...
               </div>
             ) : results.length === 0 ? (
-              <div className="py-8 text-center text-xs font-normal text-slate-500">
+              <div className="py-12 text-center text-xs font-normal text-slate-500">
                 No se encontraron prendas con &ldquo;{query}&rdquo;.
               </div>
             ) : (
@@ -140,6 +147,7 @@ export default function SearchDrawer({ isOpen, onClose, onSearchSubmit }: Search
                   </span>
                   {onSearchSubmit && (
                     <button
+                      type="button"
                       onClick={() => {
                         onSearchSubmit(query);
                         onClose();
@@ -151,8 +159,8 @@ export default function SearchDrawer({ isOpen, onClose, onSearchSubmit }: Search
                   )}
                 </div>
 
-                {/* Instant Results Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                {/* Instant Results Grid - responsive from mobile to desktop */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
                   {results.map((item) => {
                     const photo = item.photos && item.photos[0] ? item.photos[0] : "";
                     return (
@@ -167,7 +175,7 @@ export default function SearchDrawer({ isOpen, onClose, onSearchSubmit }: Search
                             src={getOptimizedCloudinaryUrl(photo, 400)}
                             alt={item.name}
                             fill
-                            sizes="180px"
+                            sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 16vw"
                             cloudinaryWidth={400}
                             loading="lazy"
                             className="object-cover object-center group-hover:scale-105 transition-transform duration-500"
@@ -186,6 +194,23 @@ export default function SearchDrawer({ isOpen, onClose, onSearchSubmit }: Search
                     );
                   })}
                 </div>
+
+                {/* Bottom View All Results CTA */}
+                {onSearchSubmit && (
+                  <div className="pt-4 pb-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSearchSubmit(query);
+                        onClose();
+                      }}
+                      className="w-full py-3 px-4 border border-black bg-black text-white hover:bg-slate-800 text-xs font-semibold uppercase tracking-wider transition-colors flex items-center justify-center gap-2 rounded-xs"
+                    >
+                      <span>Ver todos los resultados para &ldquo;{query}&rdquo;</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
