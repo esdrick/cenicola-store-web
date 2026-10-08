@@ -227,27 +227,111 @@ export async function POST(request: NextRequest) {
       return specific;
     };
 
-    // Process Order in Prisma Transaction
+    // Aggregate requested quantities per variant to handle duplicate line items safely
+    const aggregatedQuantities = new Map<string, number>();
+    for (const item of items) {
+      const vId = String(item.variant_id || "").trim();
+      if (!vId) continue;
+      const qty = Math.max(1, Number(item.quantity) || 1);
+      aggregatedQuantities.set(vId, (aggregatedQuantities.get(vId) || 0) + qty);
+    }
+
+    const sortedVariantIds = Array.from(aggregatedQuantities.keys()).sort();
+    if (sortedVariantIds.length === 0) {
+      return NextResponse.json({ error: "El carrito no contiene productos válidos." }, { status: 400 });
+    }
+
+    // Process Order in Prisma Transaction with Pessimistic Locking (FOR UPDATE)
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Calculate items subtotal and verify stock
+      // 1. Lock all requested variants in deterministic order to prevent race condition overselling and deadlocks
+      const lockedVariantsMap = new Map<
+        string,
+        {
+          id: string;
+          product_id: string;
+          size: string;
+          sku: string;
+          stock_total: number;
+          stock_online: number;
+          stock_store: number;
+          price_bcv: unknown;
+          price_divisas: unknown;
+          price_bundle_bcv: unknown;
+          price_bundle_divisas: unknown;
+          price_mayor_bcv: unknown;
+          price_mayor_divisas: unknown;
+          is_active: boolean;
+        }
+      >();
+
+      for (const varId of sortedVariantIds) {
+        const lockedRows = await tx.$queryRaw<
+          Array<{
+            id: string;
+            product_id: string;
+            size: string;
+            sku: string;
+            stock_total: number;
+            stock_online: number;
+            stock_store: number;
+            price_bcv: unknown;
+            price_divisas: unknown;
+            price_bundle_bcv: unknown;
+            price_bundle_divisas: unknown;
+            price_mayor_bcv: unknown;
+            price_mayor_divisas: unknown;
+            is_active: boolean;
+          }>
+        >`
+          SELECT id, product_id, size, sku, stock_total, stock_online, stock_store,
+                 price_bcv, price_divisas, price_bundle_bcv, price_bundle_divisas,
+                 price_mayor_bcv, price_mayor_divisas, is_active
+          FROM product_variants
+          WHERE id = ${varId}
+          FOR UPDATE
+        `;
+
+        if (!lockedRows || lockedRows.length === 0) {
+          throw new Error("Uno de los productos seleccionados ya no está disponible.");
+        }
+
+        const variantRow = lockedRows[0];
+        const totalReq = aggregatedQuantities.get(varId) || 1;
+
+        if (!variantRow.is_active) {
+          throw new Error(`La prenda en talla ${variantRow.size} ya no se encuentra activa para la venta.`);
+        }
+
+        if (variantRow.stock_online < totalReq) {
+          throw new Error(
+            `Lo sentimos, el producto en talla ${variantRow.size} (SKU: ${variantRow.sku}) se ha agotado o no cuenta con suficiente stock (${variantRow.stock_online} disponible).`
+          );
+        }
+
+        lockedVariantsMap.set(varId, variantRow);
+      }
+
+      // Fetch parent products to verify is_active and build rich order snapshots
+      const productIds = Array.from(new Set(Array.from(lockedVariantsMap.values()).map((v) => v.product_id)));
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, name: true, color: true, is_active: true },
+      });
+      const productMap = new Map(products.map((p) => [p.id, p]));
+
+      // 2. Calculate items subtotal
       let totalUsd = 0;
       const orderItems = [];
 
       for (const item of items) {
-        const variant = await tx.productVariant.findUnique({
-          where: { id: item.variant_id },
-          include: { product: { select: { name: true, color: true } } },
-        });
+        const variant = lockedVariantsMap.get(item.variant_id);
+        const product = variant ? productMap.get(variant.product_id) : null;
 
-        if (!variant || !variant.is_active) {
+        if (!variant || !variant.is_active || !product || !product.is_active) {
           throw new Error("Algunos productos de tu carrito ya no están disponibles.");
         }
 
         const qty = Number(item.quantity) || 1;
-        if (variant.stock_online < qty) {
-          throw new Error("Algunos productos de tu carrito se han agotado o no cuentan con suficiente stock disponible.");
-        }
-
         const baseBcvPrice = Number(variant.price_bcv || 0);
         const baseDivisaPrice = pickPrice(Number(variant.price_divisas || 0), baseBcvPrice);
         const bundleBcvPrice = pickPrice(Number(variant.price_bundle_bcv || 0), baseBcvPrice);
@@ -275,8 +359,8 @@ export async function POST(request: NextRequest) {
           unit_price_usd: unitPrice,
           subtotal_usd: subtotal,
           snapshot: {
-            product_name: variant.product.name,
-            color: variant.product.color,
+            product_name: product.name,
+            color: product.color,
             size: variant.size,
             sku: variant.sku,
             price_bcv: baseBcvPrice,
@@ -292,7 +376,7 @@ export async function POST(request: NextRequest) {
       // Round UP order total to next integer (e.g. 33.33 -> 34, 39.98 -> 40)
       totalUsd = Math.ceil(totalUsd);
 
-      // 2. Smart CustomerAccount Resolution & Update
+      // 3. Smart CustomerAccount Resolution & Update
       let customerAccountId: string | null = authenticatedAccountId;
       let existingAccount = customerAccountId
         ? await tx.customerAccount.findUnique({ where: { id: customerAccountId } })
@@ -318,14 +402,14 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 3. System User placeholder for online web order
+      // 4. System User placeholder for online web order
       const systemAdmin = await tx.user.findFirst({ where: { role: "admin" } });
       const createdById = systemAdmin?.id ?? null;
 
       const zelleTag = isZelle && zelleHolder ? `[Titular Zelle: ${zelleHolder}] ` : "";
       const fullNotes = `[Correo Web: ${cleanEmail}] ${zelleTag}${cleanNotes}`.trim();
 
-      // 4. Create Order linked to CustomerAccount
+      // 5. Create Order linked to CustomerAccount
       const orderNumber = await generateOrderNumber(tx, "WEB");
       const order = await tx.order.create({
         data: {
@@ -347,7 +431,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 5. Create Order Items & deduct online stock & add inventory movements
+      // 6. Create Order Items & deduct online stock safely & register inventory movements
       for (const item of orderItems) {
         await tx.orderItem.create({
           data: {
@@ -364,12 +448,22 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        const variant = await tx.productVariant.findUnique({ where: { id: item.variant_id } });
-        if (variant) {
-          const newOnline = Math.max(0, variant.stock_online - item.quantity);
+        const lockedVariant = lockedVariantsMap.get(item.variant_id);
+        if (lockedVariant) {
+          const currentOnline = lockedVariant.stock_online;
+          const newOnline = currentOnline - item.quantity;
+          if (newOnline < 0) {
+            throw new Error(`Stock insuficiente para procesar la prenda ${item.snapshot.product_name} (${item.snapshot.size}).`);
+          }
+          const newTotal = newOnline + lockedVariant.stock_store;
+
+          // Update locally tracked stock for remaining iterations
+          lockedVariant.stock_online = newOnline;
+          lockedVariant.stock_total = newTotal;
+
           await tx.productVariant.update({
             where: { id: item.variant_id },
-            data: { stock_online: newOnline, stock_total: newOnline + variant.stock_store },
+            data: { stock_online: newOnline, stock_total: newTotal },
           });
 
           await tx.inventoryMovement.create({
@@ -377,7 +471,7 @@ export async function POST(request: NextRequest) {
               variant_id: item.variant_id,
               type: "salida_venta",
               channel: "online",
-              qty_before: variant.stock_online,
+              qty_before: currentOnline,
               qty_change: -item.quantity,
               qty_after: newOnline,
               reason: `Venta E-Commerce Web orden #${orderNumber}`,

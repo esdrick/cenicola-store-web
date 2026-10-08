@@ -55,16 +55,39 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Restore stock for items
+      // Restore stock for items with deterministic pessimistic lock
+      const uniqueVariantIds = Array.from(new Set(order.items.map((i) => i.variant_id))).sort();
+      const lockedVariantsMap = new Map<string, { id: string; stock_online: number; stock_store: number }>();
+
+      for (const varId of uniqueVariantIds) {
+        const lockedRows = await tx.$queryRaw<
+          Array<{ id: string; stock_online: number; stock_store: number }>
+        >`
+          SELECT id, stock_online, stock_store
+          FROM product_variants
+          WHERE id = ${varId}
+          FOR UPDATE
+        `;
+        if (lockedRows && lockedRows.length > 0) {
+          lockedVariantsMap.set(varId, lockedRows[0]);
+        }
+      }
+
       for (const item of order.items) {
-        const variant = await tx.productVariant.findUnique({ where: { id: item.variant_id } });
+        const variant = lockedVariantsMap.get(item.variant_id);
         if (variant) {
-          const restoredOnline = variant.stock_online + item.quantity;
+          const currentOnline = variant.stock_online;
+          const restoredOnline = currentOnline + item.quantity;
+          const restoredTotal = restoredOnline + variant.stock_store;
+
+          // Update tracked stock in map for remaining iterations
+          variant.stock_online = restoredOnline;
+
           await tx.productVariant.update({
             where: { id: item.variant_id },
             data: {
               stock_online: restoredOnline,
-              stock_total: restoredOnline + variant.stock_store,
+              stock_total: restoredTotal,
             },
           });
 
@@ -73,7 +96,7 @@ export async function POST(req: NextRequest) {
               variant_id: item.variant_id,
               type: "entrada",
               channel: "online",
-              qty_before: variant.stock_online,
+              qty_before: currentOnline,
               qty_change: item.quantity,
               qty_after: restoredOnline,
               reason: `Devolución por cancelación de orden #${order.order_number}`,
