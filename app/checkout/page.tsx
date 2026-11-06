@@ -807,8 +807,7 @@ export default function CheckoutPage() {
       totalVes,
     };
 
-    const waPhoneOverride = deliveryMethod === "retiro" ? STORE_OFFICES[selectedOffice].whatsappPhone : undefined;
-    const waUrl = getWhatsAppUrl(payload, waPhoneOverride);
+    const waUrl = getWhatsAppUrl(payload, "584128373528");
     window.open(waUrl, "_blank");
   };
 
