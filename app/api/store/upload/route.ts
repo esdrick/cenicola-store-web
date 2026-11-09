@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
+import { r2Configurado, subirImagenAR2 } from "@/lib/r2";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,17 @@ export async function POST(request: NextRequest) {
     const ext = path.extname(file.name) || ".jpg";
     const filename = `comprobante_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
 
-    // 1. Try Cloudinary Storage if configured (Recommended for Production)
+    // 0. Cloudflare R2 si está configurado (almacenamiento principal)
+    if (r2Configurado()) {
+      try {
+        const url = await subirImagenAR2(file, "comprobantes");
+        return NextResponse.json({ success: true, url });
+      } catch (err) {
+        console.error("R2 upload error, attempting fallback:", err);
+      }
+    }
+
+    // 1. Try Cloudinary Storage if configured
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
     const apiKey = process.env.CLOUDINARY_API_KEY;
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
