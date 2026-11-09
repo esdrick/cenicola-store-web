@@ -48,6 +48,7 @@ export default function CatalogClient() {
 
   const [products, setProducts] = useState<ProductType[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [mainCategories, setMainCategories] = useState<string[] | null>(null);
   const [bcvRate, setBcvRate] = useState<number>(1);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(qParam);
@@ -165,6 +166,9 @@ export default function CatalogClient() {
         if (data.data) {
           setProducts(data.data);
           setCategories(data.categories || []);
+          if (Array.isArray(data.main_categories)) {
+            setMainCategories(data.main_categories);
+          }
           setBcvRate(data.bcv_rate || 1);
         }
         setLoading(false);
@@ -351,15 +355,51 @@ export default function CatalogClient() {
     }
   };
 
+  const allCategoryPills = useMemo(() => {
+    const defaultCategories = ["Mujer", "Hombre", "Niños"];
+    const map = new Map<string, string>();
+    for (const c of categories) {
+      if (!c) continue;
+      const trimmed = c.trim();
+      const lower = trimmed.toLowerCase();
+      if (!map.has(lower)) {
+        const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+        map.set(lower, capitalized);
+      }
+    }
+    for (const d of defaultCategories) {
+      const lower = d.toLowerCase();
+      if (!map.has(lower)) {
+        map.set(lower, d);
+      }
+    }
+    return Array.from(map.values());
+  }, [categories]);
+
+  const mainCategoryPills = useMemo(() => {
+    if (mainCategories !== null) {
+      return mainCategories;
+    }
+    return allCategoryPills;
+  }, [mainCategories, allCategoryPills]);
+
+  const isSelectedCategoryInMainPills = useMemo(() => {
+    if (!selectedCategory) return true;
+    return mainCategoryPills.some(
+      (cat) => cat.toLowerCase() === selectedCategory.toLowerCase()
+    );
+  }, [selectedCategory, mainCategoryPills]);
+
   const activeFiltersCount = useMemo(() => {
     let count = 0;
+    if (selectedCategory && !isSelectedCategoryInMainPills) count += 1;
     if (filters.sortBy !== "default") count += 1;
     if (filters.sizes.length > 0) count += filters.sizes.length;
     if (filters.colors.length > 0) count += filters.colors.length;
     if (filters.minPrice !== "") count += 1;
     if (filters.maxPrice !== "") count += 1;
     return count;
-  }, [filters]);
+  }, [filters, selectedCategory, isSelectedCategoryInMainPills]);
 
   const resetAllFilters = () => {
     setFilters(DEFAULT_FILTERS);
@@ -375,24 +415,6 @@ export default function CatalogClient() {
       } catch {}
     }
   };
-
-  const allCategoryPills = useMemo(() => {
-    const defaultCategories = ["Mujer", "Hombre", "Niños"];
-    const map = new Map<string, string>();
-    for (const d of defaultCategories) {
-      map.set(d.toLowerCase(), d);
-    }
-    for (const c of categories) {
-      if (!c) continue;
-      const trimmed = c.trim();
-      const lower = trimmed.toLowerCase();
-      if (!map.has(lower)) {
-        const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-        map.set(lower, capitalized);
-      }
-    }
-    return Array.from(map.values());
-  }, [categories]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans">
@@ -485,12 +507,12 @@ export default function CatalogClient() {
           >
             Ver Todo
           </button>
-          {allCategoryPills.map((cat) => (
+          {mainCategoryPills.map((cat) => (
             <button
               key={cat}
               onClick={() => handleCategorySelect(cat)}
               className={`px-4 py-1.5 border text-xs font-normal transition-colors shrink-0 ${
-                selectedCategory === cat
+                selectedCategory.toLowerCase() === cat.toLowerCase()
                   ? "bg-black text-white border-black"
                   : "bg-white text-black border-slate-300 hover:border-black"
               }`}
@@ -506,6 +528,11 @@ export default function CatalogClient() {
             <span className="font-normal text-slate-500 uppercase tracking-wider text-[10px]">
               Filtros activos:
             </span>
+            {selectedCategory && !isSelectedCategoryInMainPills && (
+              <span className="bg-white border border-slate-200 px-2 py-0.5 text-slate-800 text-[11px]">
+                Categoría: {selectedCategory}
+              </span>
+            )}
             {search && (
               <span className="bg-white border border-slate-200 px-2 py-0.5 text-slate-800 text-[11px]">
                 Búsqueda: &ldquo;{search}&rdquo;

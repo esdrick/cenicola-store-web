@@ -93,12 +93,18 @@ export async function GET(request: NextRequest) {
           ],
         });
       } else {
+        const cleanCat = category.trim();
+        const searchTerms = new Set<string>([cleanCat]);
+        if (cleanCat.length > 3 && cleanCat.toLowerCase().endsWith("s")) {
+          searchTerms.add(cleanCat.slice(0, -1));
+        }
+        const orClauses = Array.from(searchTerms).flatMap((term) => [
+          { type: { contains: term, mode: "insensitive" as const } },
+          { name: { contains: term, mode: "insensitive" as const } },
+          { description: { contains: term, mode: "insensitive" as const } },
+        ]);
         whereConditions.push({
-          OR: [
-            { type: { contains: category, mode: "insensitive" } },
-            { name: { contains: category, mode: "insensitive" } },
-            { description: { contains: category, mode: "insensitive" } },
-          ],
+          OR: orClauses,
         });
       }
     }
@@ -349,33 +355,130 @@ export async function GET(request: NextRequest) {
     });
 
     // Query all distinct active categories from the database across all active products with stock
-    const allTypesResult = await prisma.product.findMany({
-      where: {
-        is_active: true,
-        variants: {
-          some: {
-            is_active: true,
-            stock_online: { gt: 0 },
+    const [allTypesResult, pillsSetting] = await Promise.all([
+      prisma.product.findMany({
+        where: {
+          is_active: true,
+          variants: {
+            some: {
+              is_active: true,
+              stock_online: { gt: 0 },
+            },
           },
         },
-      },
-      select: { type: true },
-      distinct: ["type"],
-    });
+        select: { type: true },
+        distinct: ["type"],
+      }),
+      prisma.systemSetting
+        .findUnique({ where: { key: "store_catalog_pills" } })
+        .catch(() => null),
+    ]);
 
-    const categories = Array.from(
+    const rawDbCategories = Array.from(
       new Set(allTypesResult.map((t) => t.type?.trim()).filter(Boolean))
     ) as string[];
+
+    const defaultCategories = ["Mujer", "Hombre", "Niños"];
+    const defaultCategoryMap = new Map<string, string>();
+    for (const d of defaultCategories) {
+      defaultCategoryMap.set(d.toLowerCase(), d);
+    }
+    for (const c of rawDbCategories) {
+      const trimmed = c.trim();
+      if (!trimmed) continue;
+      const lower = trimmed.toLowerCase();
+      if (!defaultCategoryMap.has(lower)) {
+        const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+        defaultCategoryMap.set(lower, capitalized);
+      }
+    }
+    const defaultAllCategories = Array.from(defaultCategoryMap.values());
+
+    let categories: string[] = defaultAllCategories;
+    let mainCategories: string[] = defaultAllCategories;
+
+    if (pillsSetting?.value) {
+      try {
+        const parsed = JSON.parse(pillsSetting.value);
+        const itemsList: unknown[] | null = Array.isArray(parsed)
+          ? parsed
+          : Array.isArray(parsed?.items)
+          ? parsed.items
+          : Array.isArray(parsed?.pills)
+          ? parsed.pills
+          : Array.isArray(parsed?.main_categories)
+          ? parsed.main_categories
+          : null;
+
+        if (itemsList) {
+          const configuredMain: string[] = [];
+          const configuredMainSeen = new Set<string>();
+          const allOrderedMap = new Map<string, string>();
+
+          for (const item of itemsList) {
+            if (typeof item === "string") {
+              const name = item.trim();
+              if (!name) continue;
+              const lower = name.toLowerCase();
+              const displayName = defaultCategoryMap.get(lower) || name;
+              if (!configuredMainSeen.has(lower)) {
+                configuredMainSeen.add(lower);
+                configuredMain.push(displayName);
+              }
+              if (!allOrderedMap.has(lower)) {
+                allOrderedMap.set(lower, displayName);
+              }
+            } else if (item && typeof item === "object") {
+              const obj = item as Record<string, unknown>;
+              const rawName = obj.name ?? obj.label ?? "";
+              const name = typeof rawName === "string" ? rawName.trim() : "";
+              if (!name) continue;
+              const lower = name.toLowerCase();
+              const displayName = name;
+              const isVisible =
+                obj.visible !== undefined
+                  ? Boolean(obj.visible)
+                  : obj.enabled !== undefined
+                  ? Boolean(obj.enabled)
+                  : obj.active !== undefined
+                  ? Boolean(obj.active)
+                  : true;
+
+              if (isVisible && !configuredMainSeen.has(lower)) {
+                configuredMainSeen.add(lower);
+                configuredMain.push(displayName);
+              }
+              if (!allOrderedMap.has(lower)) {
+                allOrderedMap.set(lower, displayName);
+              }
+            }
+          }
+
+          for (const cat of defaultAllCategories) {
+            const lower = cat.toLowerCase();
+            if (!allOrderedMap.has(lower)) {
+              allOrderedMap.set(lower, cat);
+            }
+          }
+
+          mainCategories = configuredMain;
+          categories = Array.from(allOrderedMap.values());
+        }
+      } catch (parseErr) {
+        console.error("Invalid JSON in store_catalog_pills setting:", parseErr);
+      }
+    }
 
     return NextResponse.json(
       {
         data,
         categories,
+        main_categories: mainCategories,
         bcv_rate: bcvRate,
       },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30",
+          "Cache-Control": "public, max-age=0, s-maxage=5, stale-while-revalidate=15",
         },
       }
     );
